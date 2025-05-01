@@ -4,6 +4,7 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
 import {
     Form
 } from "@/components/ui/form"
@@ -17,16 +18,20 @@ const authSchema = (type: FormType) => {
     });
 };
 
-import React from 'react'
+import React, { useState } from 'react'
 import Image from "next/image"
 import Link from "next/link"
 import { toast } from "sonner"
 import FormFields from "./FormFields"
 import { useRouter } from "next/navigation"
+import { auth } from "@/firebase/client"
+import { signIn, signUp } from "@/lib/actions/auth.action"
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth"
 
 
 const AuthForm = ({ type }: { type: FormType }) => {
     const router = useRouter();
+    const [isLoading, setIsLoading] = useState(false);
     const formSchema = authSchema(type)
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -39,20 +44,56 @@ const AuthForm = ({ type }: { type: FormType }) => {
     })
 
     // 2. Define a submit handler.
-    function onSubmit(values: z.infer<typeof formSchema>) {
+    async function onSubmit(values: z.infer<typeof formSchema>) {
+        setIsLoading(true);
         try {
             if (type === "sign-up") {
-                toast.success("Account created successfully")
-                router.push('/sign-in')
-            } else {
-                toast.success("Signed in successfully")
-                router.push('/')
-            }
-        } catch (error) {
-            console.log(error)
-            toast.error(`There was an error: ${error}`)
-        }
+                const { name, email, password } = values;
+                const userCredentials = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredentials.user, { displayName: name });
+                const result = await signUp({
+                    uid: userCredentials.user.uid,
+                    name: name!,
+                    email,
+                    password,
+                });
 
+                if (!result?.success) {
+                    toast.error(result?.message);
+                    return;
+                }
+                toast.success("Account created successfully");
+                router.push('/sign-in');
+            } else {
+                const { email, password } = values;
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+                const idToken = await userCredential.user.getIdToken();
+                if (!idToken) {
+                    toast.error("There was an error signing in");
+                    return;
+                }
+                await signIn({
+                    email,
+                    idToken,
+                });
+                toast.success("Signed in successfully");
+                router.push('/');
+            }
+        } catch (error: any) {
+            console.error(error);
+            // Handle Firebase auth errors for sign-in
+            if (error.code === 'auth/invalid-credential' ||
+                error.code === 'auth/user-not-found' ||
+                error.code === 'auth/wrong-password') {
+                toast.error("Invalid email or password");
+            } else {
+                toast.error(`There was an error: ${error.message || error}`);
+            }
+        }
+        finally {
+            setIsLoading(false);
+        }
     }
 
     const isSignIn = type === "sign-in"
@@ -89,7 +130,16 @@ const AuthForm = ({ type }: { type: FormType }) => {
                             placeholder="Your Password"
                             type="password"
                         />
-                        <Button className="btn" type="submit">{isSignIn ? "Sign In" : "Creat an account"}</Button>
+                        <Button className="btn" type="submit" disabled={isLoading}>
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                    {isSignIn ? "Signing In..." : "Signing Up..."}
+                                </>
+                            ) : (
+                                <>{isSignIn ? "Sign In" : "Sign Up"}</>
+                            )}
+                        </Button>
                     </form>
                 </Form>
                 <p className="text-center">

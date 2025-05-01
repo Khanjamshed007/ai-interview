@@ -227,4 +227,15 @@ export const dummyInterviews: Interview[] = [
     finalized: false,
     createdAt: "2024-03-14T15:30:00Z",
   },
+  {
+    id: "3",
+    userId: "user1",
+    role: "Backend Stack Developer",
+    type: "Technical",
+    techstack: ["Node.js", "Express", "MongoDB", "MySQL", "PostgreSQL", "Redis"],
+    level: "Senior",
+    questions: ["What is Node.js?"],
+    finalized: false,
+    createdAt: "2024-03-14T15:30:00Z",
+  },
 ];
