@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
+import { createFeedback } from "@/lib/actions/general.action";
 
 // Define the enum for call status
 enum CallStatus {
@@ -73,13 +74,14 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
     const handleGenrateFeedback = async (messages: SavedMessage[]) => {
         console.log("Genrate Feedback here")
 
-        const { success, id } = {
-            success: true,
-            id: "feedback-id"
-        }
+        const { success, feedbackId: id } = await createFeedback({
+            interviewId: interviewId!,
+            userId: userId!,
+            transcript: messages
+        })
 
         if (success && id) {
-            router.push(`/feedback/${interviewId}/feedback`);
+            router.push(`/interview/${interviewId}/feedback`);
         }
         else {
             console.log('Error saving feedback');
@@ -116,8 +118,8 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
                 formattedQuestions = questions.map((question) => `- ${question}`).join('\n')
             }
 
-            await vapi.start(interviewer,{
-                variableValues:{
+            await vapi.start(interviewer, {
+                variableValues: {
                     questions: formattedQuestions
                 }
             })
