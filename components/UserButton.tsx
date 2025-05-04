@@ -6,49 +6,86 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { deleteSessionCookie } from '@/lib/actions/auth.action';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { deleteSessionCookie, getCurrentUser } from '@/lib/actions/auth.action';
+
+// Define interface for user data
+interface User {
+    name?: string | null;
+    email?: string | null;
+}
 
 const UserButton = () => {
     const router = useRouter();
-    const [userName, setUserName] = useState<string | null>(null);
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    // Fetch current user details
+    // Fetch current user on component mount
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((user) => {
-            if (user) {
-                // Prioritize displayName, fallback to email
-                setUserName(user.displayName || user.email || 'User');
-            } else {
-                setUserName(null);
-                
-                router.push('/sign-in');
+        const fetchUser = async () => {
+            try {
+                const currentUser = await getCurrentUser();
+                setUser(currentUser);
+            } catch (error: any) {
+                console.error('Failed to fetch user:', error);
+                toast.error('Failed to load user data');
+            } finally {
+                setLoading(false);
             }
-        });
+        };
 
-        return () => unsubscribe();
-    }, [router]);
+        fetchUser();
+    }, []);
 
     // Handle logout
     const handleLogout = async () => {
         try {
             await signOut(auth);
-            toast.success('Signed out successfully');
             await deleteSessionCookie();
+            toast.success('Signed out successfully');
             router.push('/sign-in');
         } catch (error: any) {
-            console.error(error);
-            toast.error(`Logout failed: ${error.message || error}`);
+            console.error('Logout error:', error);
+            toast.error(`Logout failed: ${error.message || 'An error occurred'}`);
         }
     };
+
+    // Display loading state or fallback if no user
+    if (loading) {
+        return (
+            <Button variant="outline" disabled>
+                Loading...
+            </Button>
+        );
+    }
+
+    if (!user || !user.name) {
+        return (
+            <Button variant="outline" onClick={() => router.push('/sign-in')}>
+                Sign In
+            </Button>
+        );
+    }
 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="outline" className='cursor-pointer'>{userName || 'User'}</Button>
+                <Button variant="outline" className="cursor-pointer">
+                    {user.name}
+                </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-                <DropdownMenuItem onClick={handleLogout} className='cursor-pointer'>Logout</DropdownMenuItem>
+                <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="cursor-pointer"
+                >
+                    Logout
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );

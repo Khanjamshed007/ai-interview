@@ -109,5 +109,38 @@ export async function isAuthenticated() {
 }
 
 export async function deleteSessionCookie() {
-  cookies().delete('session');
+  cookies().delete("session");
+}
+
+export async function getInterviewByUerId(
+  userId: string
+): Promise<Interview[] | null> {
+  const interviews = await db
+    .collection("interviews")
+    .where("userId", "==", userId)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  return interviews.docs.map((doc) => ({
+    ...doc.data(),
+    id: doc.id,
+  })) as Interview[];
+}
+export async function getLatestInterview(
+  params: GetLatestInterviewsParams
+): Promise<Interview[] | null> {
+  const { userId, limit = 20 } = params;
+
+  const interviews = await db
+    .collection("interviews")
+    .orderBy("createdAt", "desc")
+    .where("finalized", "==", true)
+    .where("userId", "!=", userId)
+    .limit(limit)
+    .get();
+
+  return interviews.docs.map((doc) => ({
+    ...doc.data(),
+    id: doc.id,
+  })) as Interview[];
 }
