@@ -2,8 +2,8 @@ import Agent from '@/components/Agent'
 import { getCurrentUser } from '@/lib/actions/auth.action';
 import React from 'react'
 
-const page = async() => {
-    const user=await getCurrentUser();
+const page = async () => {
+    const user = await getCurrentUser();
     return (
         <>
             <h3>Interview Genration</h3>
