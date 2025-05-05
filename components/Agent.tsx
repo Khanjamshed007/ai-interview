@@ -48,6 +48,8 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
                 setMessages((prev) => [...prev, newMessage]);
             }
         };
+
+        console.log(onMessage)
         const onSpeechStart = () => setIsSpeaking(true);
         const onSpeechEnd = () => setIsSpeaking(false);
         const onError = (error: Error) => console.error("VAPI Error:", error);
@@ -101,6 +103,8 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
 
     // Handle starting the call
     const handleCall = async () => {
+        console.log("Starting call", type);
+        console.log("Questions prop received:", questions);
         setCallStatus(CallStatus.CONNECTING);
 
         if (type === "genrate") {
@@ -111,19 +115,19 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
                 }
             });
         }
-        else {
-            let formattedQuestions = ""
+        // else {
+        //     let formattedQuestions = ""
 
-            if (questions) {
-                formattedQuestions = questions.map((question) => `- ${question}`).join('\n')
-            }
+        //     if (questions) {
+        //         formattedQuestions = questions.map((question) => `- ${question}`).join('\n')
+        //     }
 
-            await vapi.start(interviewer, {
-                variableValues: {
-                    questions: formattedQuestions
-                }
-            })
-        }
+        //     await vapi.start(interviewer, {
+        //         variableValues: {
+        //             questions: formattedQuestions
+        //         }
+        //     })
+        // }
 
     }
 

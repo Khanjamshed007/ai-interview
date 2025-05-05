@@ -8,7 +8,7 @@ const page = async () => {
         <>
             <h3>Interview Genration</h3>
 
-            <Agent userName={user?.name} userId={user?.id} type='genrate' />
+            <Agent userName={user?.name || ""} userId={user?.id} type='genrate' />
         </>
     )
 }

@@ -7,8 +7,8 @@ import Link from 'next/link';
 import DisplayTechIcons from './DisplayTechIcons';
 import { getFeedbackByInterviewId } from '@/lib/actions/general.action';
 
-const InterviewCard = async({ id, userId, role, type, techstack, createdAt }: InterviewCardProps) => {
-    const feedback = userId && id ? await getFeedbackByInterviewId({ interviewId:id, userId }) : null;
+const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: InterviewCardProps) => {
+    const feedback = userId && id ? await getFeedbackByInterviewId({ interviewId: id, userId }) : null;
     const normalizedType = /mix/gi.test(type) ? "Mixed" : type;
     const formattedDate = dayjs(feedback?.createdAt || createdAt || Date.now()).format("MMM D, YYYY");
 
@@ -38,11 +38,18 @@ const InterviewCard = async({ id, userId, role, type, techstack, createdAt }: In
                         {feedback?.finalAssessment || "You have not taken this interview yet.Take it now to improve your interview skills."}
                     </p>
                 </div>
+                <DisplayTechIcons techStack={techstack} />
                 <div className='flex flex-row justify-between'>
-                    <DisplayTechIcons techStack={techstack} />
-                    <Button className='btn-primary'>
-                        <Link href={feedback ? `/interview/${id}/feedback` : `/interview/${id}`}>{feedback ? "Check Feedback" : "Start Interview"}</Link>
-                    </Button>
+                    <div className="flex gap-4">
+                        <Button className="btn-primary" asChild>
+                            <Link href={feedback ? `/interview/${id}/feedback` : `/interview/${id}`}>
+                                {feedback ? "Check Feedback" : "Start Interview"}
+                            </Link>
+                        </Button>
+                        <Button className="btn-secondary" asChild>
+                            <Link href={`/interview/${id}/question`}>View Questions</Link>
+                        </Button>
+                    </div>
                 </div>
             </div>
 

@@ -13,11 +13,16 @@ interface Feedback {
   createdAt: string;
 }
 
+interface Question {
+  question: string;
+  answer: string;
+}
+
 interface Interview {
   id: string;
   role: string;
   level: string;
-  questions: string[];
+  questions: Question[];
   techstack: string[];
   createdAt: string;
   userId: string;
@@ -53,7 +58,7 @@ interface AgentProps {
   interviewId?: string;
   feedbackId?: string;
   type: "generate" | "interview";
-  questions?: string[];
+  questions: Question[];
 }
 
 interface RouteParams {
