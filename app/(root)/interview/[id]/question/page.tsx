@@ -49,8 +49,11 @@ const Question = async ({ params }: RouteParams) => {
                 <h2>Questions of the Interview:</h2>
                 {interview?.questions?.map((question, index) => (
                     <div key={index}>
-                        <p className="font-bold">
-                            {index + 1}. {question}
+                        <p className="font-bold" key={index}>
+                            {index + 1}. {question?.question}?
+                            <br />
+                            <br />
+                            Answer: {question?.answer}
                         </p>
                     </div>
                 ))}

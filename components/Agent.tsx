@@ -48,8 +48,6 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
                 setMessages((prev) => [...prev, newMessage]);
             }
         };
-
-        console.log(onMessage)
         const onSpeechStart = () => setIsSpeaking(true);
         const onSpeechEnd = () => setIsSpeaking(false);
         const onError = (error: Error) => console.error("VAPI Error:", error);
@@ -115,19 +113,19 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
                 }
             });
         }
-        // else {
-        //     let formattedQuestions = ""
+        else {
+            let formattedQuestions = ""
 
-        //     if (questions) {
-        //         formattedQuestions = questions.map((question) => `- ${question}`).join('\n')
-        //     }
+            if (questions) {
+                formattedQuestions = questions.map((question) => `- ${question}`).join('\n')
+            }
 
-        //     await vapi.start(interviewer, {
-        //         variableValues: {
-        //             questions: formattedQuestions
-        //         }
-        //     })
-        // }
+            await vapi.start(interviewer, {
+                variableValues: {
+                    questions: formattedQuestions
+                }
+            })
+        }
 
     }
 
@@ -175,7 +173,7 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
                 {callStatus !== "ACTIVE" ? (
                     <button className='relative btn-call' onClick={handleCall}>
                         <span className={cn("absolute animate-ping rounded-full opacity-75", callStatus !== "CONNECTING" && "hidden")} />
-                        <span>{isCallInactiveOrFinished ? "Start Call" : "...."}</span>
+                        <span>{isCallInactiveOrFinished ? "Start Call" : "Connecting..."}</span>
                     </button>
                 ) : (
                     <button className='btn-disconnect' onClick={handleDisconnect}>
