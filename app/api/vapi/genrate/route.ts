@@ -12,20 +12,6 @@ export async function POST(request: Request) {
     // Parse request body
     const { type, role, level, techstack, amount, userid } = await request.json();
 
-    // Validate input
-    if (!type || !role || !level || !techstack || !amount || !userid) {
-      return Response.json(
-        { success: false, error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
-    if (typeof amount !== "number" || amount <= 0) {
-      return Response.json(
-        { success: false, error: "Invalid amount of questions" },
-        { status: 400 }
-      );
-    }
-
     // Generate questions and answers
     const { text: response } = await generateText({
       model: google("gemini-2.0-flash-001"),
@@ -64,17 +50,7 @@ export async function POST(request: Request) {
     }
 
     // Validate response structure
-    if (!Array.isArray(questionAnswerPairs) || questionAnswerPairs.length !== amount) {
-      console.error("Invalid question-answer array:", questionAnswerPairs);
-      return Response.json(
-        {
-          success: false,
-          error: "Unexpected number of questions and answers",
-          rawResponse: response,
-        },
-        { status: 500 }
-      );
-    }
+    
     for (const pair of questionAnswerPairs) {
       if (!pair.question || !pair.answer) {
         console.error("Invalid question-answer pair:", pair);
