@@ -33,7 +33,7 @@ const page = async () => {
           alt="mock interview"
           width={400}
           height={400}
-          className='max:sm:hidden'
+          className='hidden sm:block mt-6 sm:mt-0'
         />
       </section>
       <section className='flex flex-col gap-6 mt-8'>

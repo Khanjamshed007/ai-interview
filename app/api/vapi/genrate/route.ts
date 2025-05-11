@@ -12,8 +12,8 @@ export async function POST(request: Request) {
     // Parse request body
     const { type, role, level, techstack, amount, userid } = await request.json();
 
-    // Generate questions and answers
-    const { text: response } = await generateText({
+    // Generate open-ended questions and answers
+    const { text: openEndedResponse } = await generateText({
       model: google("gemini-2.0-flash-001"),
       prompt: `Prepare questions and answers for a job interview.
         The job role is ${role}.
@@ -29,36 +29,103 @@ export async function POST(request: Request) {
         Thank you!`,
     });
 
-    // Clean and parse model response
-    let questionAnswerPairs;
+    // Generate 25 MCQ questions
+    const { text: mcqResponse } = await generateText({
+      model: google("gemini-2.0-flash-001"),
+      prompt: `Prepare 25 multiple-choice questions (MCQs) for a mock job interview.
+        The job role is ${role}.
+        The job experience level is ${level}.
+        The tech stack used in the job is: ${techstack}.
+        The focus should be on technical questions related to the tech stack.
+        Return ONLY the questions in the following JSON format, with no additional text, explanations, or code fences:
+        [{"question": "Question 1", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option A"}, {"question": "Question 2", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option B"}]
+        Example for a Software Engineer role (do not include this example in the output):
+        [{"question": "What is the primary purpose of React's useState hook?", "options": ["Manage component state", "Handle API calls", "Optimize rendering", "Control routing"], "correctAnswer": "Manage component state"}, {"question": "Which HTTP method is used for updating resources?", "options": ["GET", "POST", "PUT", "DELETE"], "correctAnswer": "PUT"}]
+        The questions and options will be read by a voice assistant, so avoid using special characters like / or *.
+        Ensure exactly 25 questions are generated.
+        Thank you!`,
+    });
+
+    // Clean and parse open-ended response
+    let openEndedPairs;
     try {
-      // Clean response: remove code fences, extra whitespace, or common issues
-      let cleanedResponse = response.trim();
+      let cleanedResponse = openEndedResponse.trim();
       cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, ""); // Remove code fences
       cleanedResponse = cleanedResponse.replace(/\n/g, ""); // Remove newlines
-      questionAnswerPairs = JSON.parse(cleanedResponse);
+      openEndedPairs = JSON.parse(cleanedResponse);
     } catch (parseError) {
-      console.error("Failed to parse model response:", response, parseError);
+      console.error("Failed to parse open-ended response:", openEndedResponse, parseError);
       return Response.json(
         {
           success: false,
-          error: "Invalid response format from model",
-          rawResponse: response, // Include raw response for debugging
+          error: "Invalid open-ended response format from model",
+          rawResponse: openEndedResponse,
         },
         { status: 500 }
       );
     }
 
-    // Validate response structure
-    
-    for (const pair of questionAnswerPairs) {
+    // Clean and parse MCQ response
+    let mcqPairs;
+    try {
+      let cleanedResponse = mcqResponse.trim();
+      cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, ""); // Remove code fences
+      cleanedResponse = cleanedResponse.replace(/\n/g, ""); // Remove newlines
+      mcqPairs = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error("Failed to parse MCQ response:", mcqResponse, parseError);
+      return Response.json(
+        {
+          success: false,
+          error: "Invalid MCQ response format from model",
+          rawResponse: mcqResponse,
+        },
+        { status: 500 }
+      );
+    }
+
+    // Validate open-ended response structure
+    for (const pair of openEndedPairs) {
       if (!pair.question || !pair.answer) {
-        console.error("Invalid question-answer pair:", pair);
+        console.error("Invalid open-ended question-answer pair:", pair);
         return Response.json(
           {
             success: false,
-            error: "Missing question or answer in response",
-            rawResponse: response,
+            error: "Missing question or answer in open-ended response",
+            rawResponse: openEndedResponse,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Validate MCQ response structure
+    if (mcqPairs.length !== 25) {
+      console.error("Incorrect number of MCQ questions:", mcqPairs.length);
+      return Response.json(
+        {
+          success: false,
+          error: "Expected 25 MCQ questions, received " + mcqPairs.length,
+          rawResponse: mcqResponse,
+        },
+        { status: 500 }
+      );
+    }
+
+    for (const pair of mcqPairs) {
+      if (
+        !pair.question ||
+        !pair.options ||
+        pair.options.length !== 4 ||
+        !pair.correctAnswer ||
+        !pair.options.includes(pair.correctAnswer)
+      ) {
+        console.error("Invalid MCQ structure:", pair);
+        return Response.json(
+          {
+            success: false,
+            error: "Invalid MCQ structure in response",
+            rawResponse: mcqResponse,
           },
           { status: 500 }
         );
@@ -71,7 +138,8 @@ export async function POST(request: Request) {
       type,
       level,
       techstack: techstack.split(",").map((tech: string) => tech.trim()),
-      questions: questionAnswerPairs,
+      questions: openEndedPairs,
+      mcqs: mcqPairs,
       userId: userid,
       finalized: true,
       coverImage: getRandomInterviewCover(),

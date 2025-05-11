@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
+import { toast } from "sonner";
 
 // Define the enum for call status
 enum CallStatus {
@@ -101,33 +102,50 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
 
     // Handle starting the call
     const handleCall = async () => {
-        console.log("Starting call", type);
-        console.log("Questions prop received:", questions);
         setCallStatus(CallStatus.CONNECTING);
 
-        if (type === "genrate") {
-            await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-                variableValues: {
-                    username: userName,
-                    userid: userId
-                }
-            });
-        }
-        else {
-            let formattedQuestions = ""
+        // Create a timeout for network speed warning
+        const slowNetworkTimeout = setTimeout(() => {
+            toast.error("Network speed slow - connection taking too long");
+        }, 15000); // 15 seconds
 
-            if (questions) {
-                formattedQuestions = questions.map((question) => `- ${question}`).join('\n')
+        // Create a timeout for call termination
+        const terminateCallTimeout = setTimeout(() => {
+            toast.error("Terminating call - connection timeout");
+            vapi.stop();
+            setCallStatus(CallStatus.FINISHED);
+        }, 25000); // 25 seconds
+
+        try {
+            if (type === "genrate") {
+                await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
+                    variableValues: {
+                        username: userName,
+                        userid: userId
+                    }
+                });
+            } else {
+                let formattedQuestions = "";
+
+                if (questions) {
+                    formattedQuestions = questions.map((question) => `- ${question}`).join('\n');
+                }
+
+                await vapi.start(interviewer, {
+                    variableValues: {
+                        questions: formattedQuestions
+                    }
+                });
             }
-
-            await vapi.start(interviewer, {
-                variableValues: {
-                    questions: formattedQuestions
-                }
-            })
+            clearTimeout(slowNetworkTimeout);
+            clearTimeout(terminateCallTimeout);
+        } catch (error) {
+            clearTimeout(slowNetworkTimeout);
+            clearTimeout(terminateCallTimeout);
+            console.error("Call failed:", error);
+            setCallStatus(CallStatus.FINISHED);
         }
-
-    }
+    };
 
     // Handle disconnecting the call
     const handleDisconnect = async () => {
@@ -139,9 +157,17 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
         }
     };
 
+    useEffect(() => {
+        if (type === "generate" && callStatus === CallStatus.FINISHED) {
+            router.push("/");
+        }
+    }, [CallStatus])
+
     const latestMessage = messages[messages.length - 1]?.content;
     const isCallInactiveOrFinished =
         callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
+
+    console.log(callStatus);
 
     return (
         <>
