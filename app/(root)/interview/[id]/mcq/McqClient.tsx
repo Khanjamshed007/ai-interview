@@ -57,7 +57,7 @@ const McqClient = ({ interview,id}: { interview: any;id:any}) => {
         }
 
         console.log("Submitted answers:", SubmissionBody);
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
+        const apiBaseUrl = process.env.NEXT_PUBLIC_BASE_URL
 
         await fetch(`${apiBaseUrl}/api/vapi/mocksubmission`, {
             method: "POST",

@@ -3,7 +3,7 @@ import { db } from "@/firebase/admin";
 export async function POST(request: Request) {
   // Set CORS headers
   const headers = {
-    "Access-Control-Allow-Origin":process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+    "Access-Control-Allow-Origin":process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
