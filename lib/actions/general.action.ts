@@ -39,8 +39,7 @@ export async function getLatestInterview(
   })) as Interview[];
 }
 
-export async function getInterviewById(id: string): Promise<Interview | null> {
-  console.log("getInterviewById called with ID:", id); // Debug: Log input ID
+export async function getInterviewById(id: string): Promise<Interview | null> {// Debug: Log input ID
   try {
     if (!id) {
       console.error("Invalid ID provided");

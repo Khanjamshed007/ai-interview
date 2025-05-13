@@ -38,7 +38,12 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
                         {feedback?.finalAssessment || "You have not taken this interview yet.Take it now to improve your interview skills."}
                     </p>
                 </div>
-                <DisplayTechIcons techStack={techstack} />
+                <div className='flex flex-row justify-between'>
+                    <DisplayTechIcons techStack={techstack} />
+                    <Button className="btn-primary" asChild>
+                        <Link href={`/interview/${id}/mcq`}>Mock Interview</Link>
+                    </Button>
+                </div>
                 <div className='flex flex-row justify-between'>
                     <div className="flex gap-4">
                         <Button className="btn-primary" asChild>
