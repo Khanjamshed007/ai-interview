@@ -8,19 +8,23 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import './styles.css';
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import LinkWithLoader from "@/components/LinkWithLoader";
 
 interface MockyInterview {
-  id: string;
-  mcqs: { question: string; options: string[]; correctAnswer: string }[];
+    id: string;
+    mcqs: { question: string; options: string[]; correctAnswer: string }[];
 }
 
-const McqClient = ({ interview,id}: { interview: any;id:any}) => {
+const McqClient = ({ interview, id }: { interview: any; id: any }) => {
     // State to track selected options for each question
     const [selectedOptions, setSelectedOptions] = useState<{
         [key: number]: string | null;
     }>({});
     // State for error message
     const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false)
+    const router = useRouter();
 
     console.log(interview);
 
@@ -34,7 +38,8 @@ const McqClient = ({ interview,id}: { interview: any;id:any}) => {
     };
 
     // Handle form submission
-    const handleSubmit = async() => {
+    const handleSubmit = async () => {
+        setLoading(true)
         // Check if all questions have a selected option
         const unansweredQuestions = interview.mcqs.some(
             (_: any, index: number) => !selectedOptions[index]
@@ -51,7 +56,7 @@ const McqClient = ({ interview,id}: { interview: any;id:any}) => {
             selectedOption: selectedOptions[index],
         }));
 
-        const SubmissionBody={
+        const SubmissionBody = {
             interviewId: id,
             userId: interview?.userId,
             answers: submission
@@ -67,17 +72,17 @@ const McqClient = ({ interview,id}: { interview: any;id:any}) => {
             },
             body: JSON.stringify(SubmissionBody),
         })
-        .then((response) => response.json())
-        .then((data) => {
-            toast.success("Mock interview submitted successfully");
-            console.log("Success:", data);
-        })
-        .catch((error) => {
-            console.error("Error:", error);
-        })
-
-        setError(null);
-        
+            .then((response) => response.json())
+            .then((data) => {
+                setLoading(false)
+                toast.success("Mock interview submitted successfully");
+                console.log("Success:", data);
+                router.push(`/interview/${data?.data?.id}/result`)
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+            })
+        setError(null)
     };
 
     return (
@@ -146,20 +151,21 @@ const McqClient = ({ interview,id}: { interview: any;id:any}) => {
             )}
 
             <div className="buttons mt-6">
-                <Button className="btn-secondary flex-1">
-                    <Link href="/" className="flex w-full justify-center">
+                <Button className="btn-secondary flex-1" disabled={loading}>
+                    <LinkWithLoader href="/" variant="secondary">
                         <p className="text-sm font-semibold text-primary-200 text-center">
                             Back to dashboard
                         </p>
-                    </Link>
+                    </LinkWithLoader>
                 </Button>
 
                 <Button
                     className="btn-primary flex-1"
                     onClick={handleSubmit}
+                    disabled={loading}
                 >
                     <p className="text-sm font-semibold text-black text-center">
-                        Submit Test
+                        {loading ? "Submitting..." : "Submit Test"}
                     </p>
                 </Button>
             </div>

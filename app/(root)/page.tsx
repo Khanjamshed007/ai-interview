@@ -1,9 +1,9 @@
 import InterviewCard from '@/components/InterviewCard'
+import LinkWithLoader from '@/components/LinkWithLoader'
 import { Button } from '@/components/ui/button'
 import { getCurrentUser } from '@/lib/actions/auth.action'
 import { getInterviewByUerId, getLatestInterview } from '@/lib/actions/general.action'
 import Image from 'next/image'
-import Link from 'next/link'
 import React from 'react'
 
 const page = async () => {
@@ -23,9 +23,9 @@ const page = async () => {
           <h2>Get Interview-ready with AI-powered Practice and Mock Interviews</h2>
           <p className='text-lg'>Practice on real time interviews with AI-generated questions and instant feedback</p>
           <Button asChild className='btn-primary'>
-            <Link href='/interview'>
+            <LinkWithLoader href='/interview'>
               Start an interview
-            </Link>
+            </LinkWithLoader>
           </Button>
         </div>
         <Image

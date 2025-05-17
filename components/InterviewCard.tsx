@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import Link from 'next/link';
 import DisplayTechIcons from './DisplayTechIcons';
 import { getFeedbackByInterviewId, getInterviewById } from '@/lib/actions/general.action';
+import LinkWithLoader from './LinkWithLoader';
 
 const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: InterviewCardProps) => {
     const feedback = userId && id ? await getFeedbackByInterviewId({ interviewId: id, userId }) : null;
@@ -44,19 +45,19 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
                     <DisplayTechIcons techStack={techstack} />
                     {interview?.mcqs && interview?.mcqs?.length > 0 && (
                         <Button className="btn-primary" asChild>
-                            <Link href={`/interview/${id}/mcq`}>Mock Interview</Link>
+                            <LinkWithLoader href={`/interview/${id}/mcq`}>Mock Interview</LinkWithLoader>
                         </Button>
                     )}
                 </div>
                 <div className='flex flex-row justify-between'>
                     <div className="flex gap-4">
                         <Button className="btn-primary" asChild>
-                            <Link href={feedback ? `/interview/${id}/feedback` : `/interview/${id}`}>
+                            <LinkWithLoader href={feedback ? `/interview/${id}/feedback` : `/interview/${id}`}>
                                 {feedback ? "Check Feedback" : "Start Interview"}
-                            </Link>
+                            </LinkWithLoader>
                         </Button>
                         <Button className="btn-secondary" asChild>
-                            <Link href={`/interview/${id}/question`}>View Questions</Link>
+                            <LinkWithLoader href={`/interview/${id}/question`} variant="secondary">View Questions</LinkWithLoader>
                         </Button>
                     </div>
                 </div>

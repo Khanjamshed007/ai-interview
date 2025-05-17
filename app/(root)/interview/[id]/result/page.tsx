@@ -1,3 +1,5 @@
+import LinkWithLoader from '@/components/LinkWithLoader';
+import { Button } from '@/components/ui/button';
 import { getInterviewById, getMockResultById } from '@/lib/actions/general.action';
 import React from 'react'
 
@@ -24,11 +26,16 @@ const pages = async ({ params }: RouteParams) => {
         <div className="flex items-center justify-center flex-col">
             <div className='flex flex-row justify-between'>
                 <h1 className="text-3xl font-bold mb-6">Mock Result</h1>
-                <div className='flex flex-row'>
-                    <h1 className="text-xl font-bold">Correct Answers: {NumberCorrect}</h1>
-                    <h1 className="text-xl font-bold">Incorrect Answers: {NumberIncorrect}</h1>
-                </div>
             </div>
+            <div className="flex flex-row gap-3 mb-5">
+                <h1 className="text-md font-semibold text-green-700 bg-green-100 border border-green-300 rounded-md px-4 py-2">
+                    ✅ Correct Answers: {NumberCorrect}
+                </h1>
+                <h1 className="text-md font-semibold text-red-700 bg-red-100 border border-red-300 rounded-md px-4 py-2">
+                    ❌ Incorrect Answers: {NumberIncorrect}
+                </h1>
+            </div>
+
             <div className="flex flex-col">
                 {interview?.mcqs.map((item: any, index: number) => (
                     <div key={index}>
@@ -37,7 +44,7 @@ const pages = async ({ params }: RouteParams) => {
                             <p className='font-bold text-lg'>{item.question}</p>
                         </div>
                         <div className='ml-3'>
-                            <p className='font-bold text-lg mb-2'>options:</p>
+                            <p className='font-semibold text-lg mb-2'>options:</p>
                             {item?.options?.length > 0 ? (
                                 item.options.map((option: string, optionIndex: number) => (
                                     <div key={optionIndex} className="radio-input">
@@ -68,6 +75,17 @@ const pages = async ({ params }: RouteParams) => {
                         </div>
                     </div>
                 ))}
+            </div>
+
+            <div className="buttons mt-6">
+                <Button className="btn-secondary flex-1">
+                    <LinkWithLoader href="/" variant="secondary">
+                        <p className="text-sm font-semibold text-primary-200 text-center">
+                            Back to dashboard
+                        </p>
+                    </LinkWithLoader>
+                </Button>
+
             </div>
         </div>
     );

@@ -1,3 +1,4 @@
+import LoadingWrapper from '@/components/LoadingWrapper'
 import UserButton from '@/components/UserButton'
 import { isAuthenticated } from '@/lib/actions/auth.action'
 import Image from 'next/image'
@@ -24,7 +25,9 @@ const Rootlayout = async ({ children }: { children: ReactNode }) => {
                 </Link>
                 <UserButton />
             </nav>
-            {children}
+            <LoadingWrapper>
+                {children}
+            </LoadingWrapper>
         </div>
     )
 }

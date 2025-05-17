@@ -171,7 +171,7 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
 
     return (
         <>
-            <div className='call-view'>
+            <div className='call-view mb-5 mt-5'>
                 <div className='card-interviewer'>
                     <div className='avatar'>
                         <Image src="/ai-avatar.png" alt='vapi' width={65} height={54} className='object-cover' />
