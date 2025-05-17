@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import './styles.css';
+import { toast } from "sonner";
 
 interface MockyInterview {
   id: string;
@@ -68,6 +69,7 @@ const McqClient = ({ interview,id}: { interview: any;id:any}) => {
         })
         .then((response) => response.json())
         .then((data) => {
+            toast.success("Mock interview submitted successfully");
             console.log("Success:", data);
         })
         .catch((error) => {
@@ -107,7 +109,7 @@ const McqClient = ({ interview,id}: { interview: any;id:any}) => {
                 <h2 className="text-center">Questions of the Mock Interview</h2>
                 {interview?.mcqs.map((item: any, index: number) => (
                     <div key={index}>
-                        <div className="flex flex-row gap-2">
+                        <div className="flex flex-row gap-2 mb-2">
                             <p className="font-bold">{index + 1}.</p>
                             <p>{item.question}</p>
                         </div>

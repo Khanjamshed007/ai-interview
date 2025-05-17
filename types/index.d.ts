@@ -29,6 +29,11 @@ interface Interview {
   type: string;
   finalized: boolean;
 }
+interface MockResult {
+  id: string;
+  answers: string[];
+  userId: string;
+}
 
 interface CreateFeedbackParams {
   interviewId: string;

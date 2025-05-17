@@ -64,6 +64,31 @@ export async function getInterviewById(id: string): Promise<Interview | null> {/
     return null;
   }
 }
+export async function getMockResultById(id: string): Promise<MockResult | null> {// Debug: Log input ID
+  try {
+    if (!id) {
+      console.error("Invalid ID provided");
+      return null;
+    }
+
+    const mockResultDoc = await db.collection("mocksubmissions").doc(id).get();
+
+    if (!mockResultDoc.exists) {
+      return null;
+    }
+
+    const mockResultData = mockResultDoc.data();
+
+    if (!mockResultData) {
+      return null;
+    }
+
+    return mockResultData as MockResult;
+  } catch (error) {
+    console.error("Error fetching mock result with ID:", id, error);
+    return null;
+  }
+}
 
 export async function createFeedback(params: CreateFeedbackParams) {
   const { interviewId, userId, transcript } = params;

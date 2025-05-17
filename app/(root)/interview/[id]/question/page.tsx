@@ -53,7 +53,9 @@ const Question = async ({ params }: RouteParams) => {
                             {index + 1}. {question?.question}?
                             <br />
                             <br />
-                            Answer: {question?.answer}
+                            Explanation: <p className="text-primary-200 font-medium">
+                                {question?.answer}
+                            </p>
                         </p>
                     </div>
                 ))}

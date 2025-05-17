@@ -5,12 +5,14 @@ import { getRandomInterviewCover } from '@/lib/utils';
 import { Button } from './ui/button';
 import Link from 'next/link';
 import DisplayTechIcons from './DisplayTechIcons';
-import { getFeedbackByInterviewId } from '@/lib/actions/general.action';
+import { getFeedbackByInterviewId, getInterviewById } from '@/lib/actions/general.action';
 
 const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: InterviewCardProps) => {
     const feedback = userId && id ? await getFeedbackByInterviewId({ interviewId: id, userId }) : null;
     const normalizedType = /mix/gi.test(type) ? "Mixed" : type;
     const formattedDate = dayjs(feedback?.createdAt || createdAt || Date.now()).format("MMM D, YYYY");
+    const interview = await getInterviewById(id);
+    console.log(interview);
 
     return (
         <div className='card-border w-[360px] max-sm:w-full min-h-96'>
@@ -40,9 +42,11 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
                 </div>
                 <div className='flex flex-row justify-between'>
                     <DisplayTechIcons techStack={techstack} />
-                    <Button className="btn-primary" asChild>
-                        <Link href={`/interview/${id}/mcq`}>Mock Interview</Link>
-                    </Button>
+                    {interview?.mcqs && interview?.mcqs?.length > 0 && (
+                        <Button className="btn-primary" asChild>
+                            <Link href={`/interview/${id}/mcq`}>Mock Interview</Link>
+                        </Button>
+                    )}
                 </div>
                 <div className='flex flex-row justify-between'>
                     <div className="flex gap-4">
