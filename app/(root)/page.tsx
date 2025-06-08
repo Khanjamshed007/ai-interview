@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/actions/auth.action'
 import { getInterviewByUerId, getLatestInterview } from '@/lib/actions/general.action'
 import Image from 'next/image'
 import React from 'react'
+import { FaUpload } from "react-icons/fa";
 
 const page = async () => {
   const user = await getCurrentUser();
@@ -22,11 +23,18 @@ const page = async () => {
         <div className='flex flex-col gap-6 max-w-lg'>
           <h2>Get Interview-ready with AI-powered Practice and Mock Interviews</h2>
           <p className='text-lg'>Practice on real time interviews with AI-generated questions and instant feedback</p>
-          <Button asChild className='btn-primary'>
-            <LinkWithLoader href='/interview'>
-              Start an interview
-            </LinkWithLoader>
-          </Button>
+          <div className='flex flex-row gap-4'>
+            <Button asChild className='btn-primary'>
+              <LinkWithLoader href='/interview'>
+                Start an interview
+              </LinkWithLoader>
+            </Button>
+            <Button asChild className='btn-primary'>
+              <LinkWithLoader href='/resume'>
+                <FaUpload /> Upload Resume
+              </LinkWithLoader>
+            </Button>
+          </div>
         </div>
         <Image
           src="/robot.png"

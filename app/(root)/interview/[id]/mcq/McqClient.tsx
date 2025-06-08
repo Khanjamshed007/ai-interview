@@ -36,6 +36,9 @@ const McqClient = ({ interview, id }: { interview: any; id: any }) => {
         }));
         setError(null); // Clear error when user selects an option
     };
+    const isUnanswered = interview.mcqs.some(
+        (_: any, index: number) => !selectedOptions[index]
+    );
 
     // Handle form submission
     const handleSubmit = async () => {
@@ -162,7 +165,7 @@ const McqClient = ({ interview, id }: { interview: any; id: any }) => {
                 <Button
                     className="btn-primary flex-1"
                     onClick={handleSubmit}
-                    disabled={loading}
+                    disabled={isUnanswered || loading}
                 >
                     <p className="text-sm font-semibold text-black text-center">
                         {loading ? "Submitting..." : "Submit Test"}
