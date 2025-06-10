@@ -1,7 +1,8 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage"; // ✅ Add this for Storage
+import { getStorage } from "firebase-admin/storage";
+
 
 const initFirebaseAdmin = () => {
   const apps = getApps();

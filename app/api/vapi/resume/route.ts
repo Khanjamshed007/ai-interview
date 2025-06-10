@@ -1,9 +1,10 @@
 import { db, adminStorage } from "@/firebase/admin";
 import { v4 as uuidv4 } from "uuid";
+import { Buffer } from "buffer";
 
 export async function POST(request: Request) {
   const headers = {
-    "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+    "Access-Control-Allow-Origin":       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
@@ -13,7 +14,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Parse form data
+    // Log environment variables for debugging
+    console.log("FIREBASE_STORAGE_BUCKET:", process.env.FIREBASE_STORAGE_BUCKET);
+
     const formData = await request.formData();
     const file = formData.get("resume") as File;
     const userId = formData.get("userId") as string;
@@ -25,7 +28,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Optional: File size limit (e.g., 5MB)
     if (file.size > 5 * 1024 * 1024) {
       return Response.json(
         { success: false, error: "File too large (max 5MB)" },
@@ -37,25 +39,29 @@ export async function POST(request: Request) {
     const uniqueId = uuidv4();
     const filename = `resumes/${userId}_${uniqueId}.pdf`;
 
-    // Upload to Firebase Storage
-    const bucket = adminStorage.bucket();
-    const fileUpload = bucket.file(filename);
+    if (!process.env.FIREBASE_STORAGE_BUCKET) {
+      throw new Error("FIREBASE_STORAGE_BUCKET is not defined in environment variables");
+    }
 
-    const downloadToken = uuidv4(); // For secure download URL
+    const bucket = adminStorage.bucket(process.env.FIREBASE_STORAGE_BUCKET);
+    console.log("Bucket Name:", bucket.name); // Debug bucket name
+
+    const fileUpload = bucket.file(filename);
+    const downloadToken = uuidv4();
 
     await fileUpload.save(buffer, {
       metadata: {
         contentType: file.type,
         firebaseStorageDownloadTokens: downloadToken,
-        userId, // Store userId in metadata for access control (optional)
+        userId,
       },
       resumable: false,
     });
 
-    // Construct secure download URL
-    const fileUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filename)}?alt=media&token=${downloadToken}`;
+    const fileUrl = `https://firebasestorage.googleapis.com/v0/b/${
+      bucket.name
+    }/o/${encodeURIComponent(filename)}?alt=media&token=${downloadToken}`;
 
-    // Store metadata in Firestore
     const metadata = {
       userId,
       fileName: file.name,
