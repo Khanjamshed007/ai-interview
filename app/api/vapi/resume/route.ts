@@ -3,7 +3,6 @@ import { Readable } from "stream";
 import { v4 as uuidv4 } from "uuid";
 
 const uri = process.env.MONGODB_URI!;
-const dbName = process.env.DB_NAME || "your_db_name"; // Add to your .env.local
 
 export async function POST(req: Request) {
   const headers = {
@@ -32,7 +31,7 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const client = await new MongoClient(uri).connect();
-    const db = client.db(dbName);
+    const db = client.db("ai_interview");
     const bucket = new GridFSBucket(db, { bucketName: "resumes" });
 
     const filename = `${userId}_${uuidv4()}.pdf`;
