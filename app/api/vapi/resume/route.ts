@@ -30,7 +30,11 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     await connectToDatabase();
 
-    await Resume.deleteOne({ userId });
+    console.log("Mongoose connection state:", mongoose.connection.readyState);
+
+    console.log("Deleting resume for userId:", userId);
+    const deleteResult = await Resume.deleteOne({ userId });
+    console.log("Delete result:", deleteResult);
 
     const result = await Resume.create({
       userId,
