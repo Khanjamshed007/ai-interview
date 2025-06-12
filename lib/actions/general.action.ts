@@ -4,9 +4,6 @@ import { feedbackSchema } from "@/constants";
 import { db } from "@/firebase/admin";
 import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
-import { NextResponse } from "next/server";
-import { connectToDatabase } from "../mongodb";
-import { Resume } from "@/models/resume";
 
 export async function getInterviewByUerId(
   userId: string

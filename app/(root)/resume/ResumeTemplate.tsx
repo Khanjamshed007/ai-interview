@@ -45,7 +45,7 @@ const ResumeTemplate = ({ user }) => {
             formData.append('resume', selectedFile);
             formData.append('userId', user?.id);
 
-            const response = await fetch('http://localhost:3000/api/vapi/genrate', {
+            const response = await fetch('/api/vapi/genrate', {
                 method: 'POST',
                 body: formData,
             });
