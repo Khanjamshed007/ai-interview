@@ -1,9 +1,12 @@
-"use server"
+"use server";
 
 import { feedbackSchema } from "@/constants";
 import { db } from "@/firebase/admin";
 import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
+import { NextResponse } from "next/server";
+import { connectToDatabase } from "../mongodb";
+import { Resume } from "@/models/resume";
 
 export async function getInterviewByUerId(
   userId: string
@@ -39,7 +42,8 @@ export async function getLatestInterview(
   })) as Interview[];
 }
 
-export async function getInterviewById(id: string): Promise<Interview | null> {// Debug: Log input ID
+export async function getInterviewById(id: string): Promise<Interview | null> {
+  // Debug: Log input ID
   try {
     if (!id) {
       console.error("Invalid ID provided");
@@ -64,7 +68,10 @@ export async function getInterviewById(id: string): Promise<Interview | null> {/
     return null;
   }
 }
-export async function getMockResultById(id: string): Promise<MockResult | null> {// Debug: Log input ID
+export async function getMockResultById(
+  id: string
+): Promise<MockResult | null> {
+  // Debug: Log input ID
   try {
     if (!id) {
       console.error("Invalid ID provided");
@@ -172,3 +179,17 @@ export async function getFeedbackByInterviewId(
     ...feedbackDoc.data(),
   } as Feedback;
 }
+
+// lib/actions/getResumes.ts
+export async function getResumes() {
+  try {
+    const res = await fetch("http://localhost:3000/api/vapi/resume");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to fetch resumes");
+    return data.data;
+  } catch (error) {
+    console.error("Client: Error fetching resumes:", error);
+    return [];
+  }
+}
+

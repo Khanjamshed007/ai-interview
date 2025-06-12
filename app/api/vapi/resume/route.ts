@@ -1,67 +1,60 @@
-import { MongoClient, GridFSBucket } from "mongodb";
-import { Readable } from "stream";
-import { v4 as uuidv4 } from "uuid";
+import { connectToDatabase } from "@/lib/mongodb";
+import mongoose from "mongoose";
+import { NextResponse } from "next/server";
 
-const uri = process.env.MONGODB_URI!;
 
 export async function POST(req: Request) {
-  const headers = {
-    "Access-Control-Allow-Origin":
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers });
-  }
-
   try {
     const formData = await req.formData();
     const file = formData.get("resume") as File;
     const userId = formData.get("userId") as string;
 
     if (!file || !userId) {
-      return Response.json(
-        { success: false, error: "Missing userId or resume file" },
-        { status: 400, headers }
-      );
+      return NextResponse.json({ success: false, error: "Missing userId or file" }, { status: 400 });
+    }
+
+    // Max file size: 5MB
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json({ success: false, error: "File exceeds 5MB limit" }, { status: 413 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const client = await new MongoClient(uri).connect();
-    const db = client.db("ai_interview");
-    const bucket = new GridFSBucket(db, { bucketName: "resumes" });
+    const db = await connectToDatabase();
+    const collection = db.collection("resumes");
 
-    const filename = `${userId}_${uuidv4()}.pdf`;
-
-    const readableStream = Readable.from(buffer);
-    const uploadStream = bucket.openUploadStream(filename, {
-      metadata: { userId, originalName: file.name, contentType: file.type },
-    });
-
-    await new Promise((resolve, reject) => {
-      readableStream.pipe(uploadStream)
-        .on("error", reject)
-        .on("finish", resolve);
-    });
-
-    const metadata = {
+    const result = await collection.insertOne({
       userId,
       fileName: file.name,
-      gridFsId: uploadStream.id,
+      fileType: file.type,
+      fileData: buffer,
       uploadedAt: new Date().toISOString(),
-    };
+    });
 
-    await db.collection("resumeMetadata").insertOne(metadata);
-
-    return Response.json({ success: true, data: metadata }, { status: 200, headers });
-  } catch (error: any) {
-    console.error("Error uploading resume:", error);
-    return Response.json(
-      { success: false, error: error.message || "Resume upload failed" },
-      { status: 500, headers }
-    );
+    return NextResponse.json({ success: true, data: { id: result.insertedId } });
+  } catch (err: any) {
+    console.error("Upload error:", err);
+    return NextResponse.json({ success: false, error: err.message || "Upload failed" }, { status: 500 });
   }
 }
+
+// app/api/resume/route.ts
+
+export async function GET() {
+  try {
+    await connectToDatabase();
+
+    const raw = await mongoose.connection.db
+      .collection("resumeMetadata")
+      .find({})
+      .toArray();
+
+    console.log("RAW RESUMES:", raw); // <-- this should 100% log your data
+
+    return NextResponse.json({ success: true, data: raw });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
