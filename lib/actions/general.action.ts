@@ -192,4 +192,39 @@ export async function getResumes() {
     return [];
   }
 }
+// general.action.ts
+export async function getResumesById(id: string) {
+  try {
+    const baseUrl = 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/vapi/resume/${id}?inline=true`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/pdf',
+      },
+    });
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to fetch resume (status: ${response.status})`);
+    }
+
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = `resume-${id}.pdf`;
+    if (contentDisposition && contentDisposition.includes('filename=')) {
+      fileName = contentDisposition
+        .split('filename=')[1]
+        .replace(/"/g, '')
+        .trim();
+    }
+
+    return {
+      fileUrl: `${baseUrl}/api/vapi/resume/${id}?inline=true`, // API URL for viewing
+      fileUrlDownload: `${baseUrl}/api/vapi/resume/${id}`, // API URL for downloading
+      fileName,
+      fileType: response.headers.get('content-type') || 'application/pdf',
+    };
+  } catch (error) {
+    console.error('Client: Error fetching resume:', error);
+    return null;
+  }
+}
