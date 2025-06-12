@@ -1,7 +1,16 @@
-import { connectToDatabase } from "@/lib/mongodb";
 import mongoose from "mongoose";
+import { connectToDatabase } from "@/lib/mongodb";
 import { NextResponse } from "next/server";
 
+const resumeSchema = new mongoose.Schema({
+  userId: String,
+  fileName: String,
+  fileType: String,
+  fileData: Buffer,
+  uploadedAt: String,
+});
+
+const Resume = mongoose.models.Resume || mongoose.model("Resume", resumeSchema);
 
 export async function POST(req: Request) {
   try {
@@ -13,18 +22,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Missing userId or file" }, { status: 400 });
     }
 
-    // Max file size: 5MB
     const MAX_SIZE = 5 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
       return NextResponse.json({ success: false, error: "File exceeds 5MB limit" }, { status: 413 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    await connectToDatabase();
 
-    const db = await connectToDatabase();
-    const collection = db.collection("resumes");
+    await Resume.deleteOne({ userId });
 
-    const result = await collection.insertOne({
+    const result = await Resume.create({
       userId,
       fileName: file.name,
       fileType: file.type,
@@ -32,29 +40,36 @@ export async function POST(req: Request) {
       uploadedAt: new Date().toISOString(),
     });
 
-    return NextResponse.json({ success: true, data: { id: result.insertedId } });
+    console.log("Inserted resume for user:", userId, "ID:", result._id);
+
+    return NextResponse.json({
+      success: true,
+      data: { id: result._id, fileUrl: `/api/vapi/resume/${result._id}` },
+    });
   } catch (err: any) {
     console.error("Upload error:", err);
     return NextResponse.json({ success: false, error: err.message || "Upload failed" }, { status: 500 });
   }
 }
 
-// app/api/resume/route.ts
-
 export async function GET() {
   try {
     await connectToDatabase();
+    const raw = await Resume.find({}, "-fileData").exec();
+    console.log("RAW RESUMES:", raw);
 
-    const raw = await mongoose.connection.db
-      .collection("resumeMetadata")
-      .find({})
-      .toArray();
+    const data = raw.map((doc) => ({
+      id: doc._id.toString(),
+      userId: doc.userId,
+      fileName: doc.fileName,
+      fileType: doc.fileType,
+      uploadedAt: doc.uploadedAt,
+      fileUrl: `/api/vapi/resume/${doc._id}`,
+    }));
 
-    console.log("RAW RESUMES:", raw); // <-- this should 100% log your data
-
-    return NextResponse.json({ success: true, data: raw });
+    return NextResponse.json({ success: true, data });
   } catch (err: any) {
+    console.error("Error fetching resumes:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
-
