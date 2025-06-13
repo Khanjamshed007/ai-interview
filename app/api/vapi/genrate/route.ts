@@ -2,7 +2,7 @@ import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { db } from "@/firebase/admin";
 import { getRandomInterviewCover } from "@/lib/utils";
-import pdf from "pdf-parse";
+import PDFParser from "pdf2json";
 
 export async function POST(request: Request) {
   try {
@@ -18,11 +18,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Read and parse PDF file
+    // Read PDF file
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const pdfData = await pdf(buffer);
-    const resumeText = pdfData.text;
+
+    // Parse PDF using pdf2json
+    const pdfParser = new PDFParser();
+    const parsePromise = new Promise<string>((resolve, reject) => {
+      pdfParser.on("pdfParser_dataError", (errData: any) => reject(new Error(errData.parserError)));
+      pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
+        const text = pdfParser.getRawTextContent();
+        resolve(text);
+      });
+      pdfParser.parseBuffer(buffer);
+    });
+
+    const resumeText = await parsePromise;
 
     if (!resumeText || resumeText.trim().length === 0) {
       return Response.json(
@@ -36,7 +47,7 @@ export async function POST(request: Request) {
       model: google("gemini-2.0-flash-001"),
       prompt: `Based on the following resume text, prepare questions and answers for a job interview.
         Resume text: ${resumeText}
-        Generate ${5} open-ended questions relevant to the candidate's experience, skills, or projects mentioned in the resume.
+        Generate 5 open-ended questions relevant to the candidate's experience, skills, or projects mentioned in the resume.
         Return ONLY the questions and answers in the following JSON format, with no additional text, explanations, or code fences:
         [{"question": "Question 1", "answer": "Answer 1"}, {"question": "Question 2", "answer": "Answer 2"}]
         The questions and answers will be read by a voice assistant, so avoid using special characters like / or *.
