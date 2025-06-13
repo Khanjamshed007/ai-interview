@@ -2,10 +2,10 @@ import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { getRandomInterviewCover } from "@/lib/utils";
 import { db } from "@/firebase/admin";
-import { getDocument, GlobalWorkerOptions, version } from "@mozilla/pdf.js";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 
-// Set the workerSrc for pdf.js (required for Node.js environment)
-GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
+// Set the workerSrc for pdfjs-dist (required for Node.js environment)
+GlobalWorkerOptions.workerSrc = require("pdfjs-dist/build/pdf.worker.entry");
 
 export async function GET() {
   return Response.json({ success: true, data: "Thank You" }, { status: 200 });
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         );
       }
 
-      // Load PDF document using pdf.js
+      // Load PDF document using pdfjs-dist
       const pdf = await getDocument({ data: buffer }).promise;
       
       let textContent = "";
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       // Clean up PDF document
       pdf.destroy();
     } catch (pdfError: any) {
-      console.error("Failed to process PDF with pdf.js:", pdfError);
+      console.error("Failed to process PDF with pdfjs-dist:", pdfError);
       let errorMessage = "Error processing PDF file";
       if (pdfError.name === "InvalidPDFException") {
         errorMessage = "The uploaded PDF is invalid or corrupted";
