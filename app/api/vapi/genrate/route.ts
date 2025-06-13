@@ -1,177 +1,153 @@
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
-import { getRandomInterviewCover } from "@/lib/utils";
 import { db } from "@/firebase/admin";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-
-// Dynamically set workerSrc to ensure compatibility across environments
-import * as pdfjs from "pdfjs-dist";
-GlobalWorkerOptions.workerSrc = pdfjs;
-
-export async function GET() {
-  return Response.json({ success: true, data: "Thank You" }, { status: 200 });
-}
+import { getRandomInterviewCover } from "@/lib/utils";
+import pdf from "pdf-parse";
 
 export async function POST(request: Request) {
   try {
+    // Parse multipart form data to get userid and file
     const formData = await request.formData();
-    const pdfFile = formData.get("resume") as File | null;
+    const userid = formData.get("userid")?.toString();
+    const file = formData.get("file");
 
-    if (!pdfFile) {
+    if (!userid || !file || !(file instanceof File) || file.type !== "application/pdf") {
       return Response.json(
-        { success: false, error: "No resume PDF provided" },
+        { success: false, error: "Missing userid or valid PDF file" },
         { status: 400 }
       );
     }
 
-    if (pdfFile.type !== "application/pdf") {
+    // Read and parse PDF file
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const pdfData = await pdf(buffer);
+    const resumeText = pdfData.text;
+
+    if (!resumeText || resumeText.trim().length === 0) {
       return Response.json(
-        { success: false, error: "Uploaded file must be a PDF" },
+        { success: false, error: "No text extracted from the PDF" },
         { status: 400 }
       );
     }
 
-    if (pdfFile.size > 5 * 1024 * 1024) {
-      return Response.json(
-        { success: false, error: "PDF file size exceeds 5MB limit" },
-        { status: 400 }
-      );
-    }
-
-    let resumeText: string;
-    try {
-      const buffer = Buffer.from(await pdfFile.arrayBuffer());
-
-      // Validate PDF header
-      if (!buffer.toString("utf8", 0, 5).startsWith("%PDF-")) {
-        return Response.json(
-          { success: false, error: "Invalid PDF file format" },
-          { status: 400 }
-        );
-      }
-
-      // Load PDF document using pdfjs-dist
-      const pdf = await getDocument({ data: buffer }).promise;
-      
-      let textContent = "";
-      const numPages = pdf.numPages;
-
-      // Extract text from each page
-      for (let i = 1; i <= numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const pageText = content.items
-          .map((item: any) => (item.str || "").trim())
-          .filter((str: string) => str)
-          .join(" ");
-        textContent += pageText + " ";
-      }
-
-      resumeText = textContent.trim();
-
-      if (!resumeText) {
-        console.warn("No text extracted from PDF; proceeding with empty resume text");
-        resumeText = "No resume content available";
-      }
-
-      // Clean up PDF document
-      pdf.destroy();
-    } catch (pdfError: any) {
-      console.error("Failed to process PDF with pdfjs-dist:", pdfError);
-      let errorMessage = "Error processing PDF file";
-      if (pdfError.name === "InvalidPDFException") {
-        errorMessage = "The uploaded PDF is invalid or corrupted";
-      } else if (pdfError.name === "PasswordException") {
-        errorMessage = "The PDF is password-protected or encrypted";
-      } else {
-        errorMessage = `Error processing PDF file: ${pdfError.message}`;
-      }
-      return Response.json(
-        { success: false, error: errorMessage, stack: pdfError.stack },
-        { status: 500 }
-      );
-    }
-
-    const type = "ai";
-    const amount = 5;
-    const userid = "anonymous";
-
+    // Generate open-ended questions and answers based on resume
     const { text: openEndedResponse } = await generateText({
       model: google("gemini-2.0-flash-001"),
-      prompt: `Prepare questions and answers for a job interview based on the following resume content:
-        Resume: ${resumeText.substring(0, 5000)}
-        The focus should be a mix of behavioural and technical questions.
-        The amount of questions required is: ${amount}.
+      prompt: `Based on the following resume text, prepare questions and answers for a job interview.
+        Resume text: ${resumeText}
+        Generate ${5} open-ended questions relevant to the candidate's experience, skills, or projects mentioned in the resume.
         Return ONLY the questions and answers in the following JSON format, with no additional text, explanations, or code fences:
-        [{"question": "...", "answer": "..."}]`
+        [{"question": "Question 1", "answer": "Answer 1"}, {"question": "Question 2", "answer": "Answer 2"}]
+        The questions and answers will be read by a voice assistant, so avoid using special characters like / or *.
+        Thank you!`,
     });
 
+    // Generate 10 MCQ questions based on resume
     const { text: mcqResponse } = await generateText({
       model: google("gemini-2.0-flash-001"),
-      prompt: `Prepare 25 multiple-choice questions (MCQs) for a mock job interview based on the following resume content:
-        Resume: ${resumeText.substring(0, 5000)}
-        The focus should be on technical questions.
-        Return ONLY the questions in this format:
-        [{"question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": "A"}]
-        Ensure exactly 25 questions.`
+      prompt: `Based on the following resume text, prepare 10 multiple-choice questions (MCQs) for a mock job interview.
+        Resume text: ${resumeText}
+        Focus on technical questions related to the skills, technologies, or projects mentioned in the resume.
+        Return ONLY the questions in the following JSON format, with no additional text, explanations, or code fences:
+        [{"question": "Question 1", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option A"}, {"question": "Question 2", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option B"}]
+        The questions and options will be read by a voice assistant, so avoid using special characters like / or *.
+        Ensure exactly 10 questions are generated.
+        Thank you!`,
     });
 
+    // Clean and parse open-ended response
     let openEndedPairs;
     try {
-      let cleaned = openEndedResponse.trim().replace(/^```json\n|\n```$/g, "").replace(/\n/g, "");
-      openEndedPairs = JSON.parse(cleaned);
-    } catch (e) {
+      let cleanedResponse = openEndedResponse.trim();
+      cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, "");
+      cleanedResponse = cleanedResponse.replace(/\n/g, "");
+      openEndedPairs = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error("Failed to parse open-ended response:", openEndedResponse, parseError);
       return Response.json(
-        { success: false, error: "Invalid open-ended response format", rawResponse: openEndedResponse },
+        {
+          success: false,
+          error: "Invalid open-ended response format from model",
+          rawResponse: openEndedResponse,
+        },
         { status: 500 }
       );
     }
 
+    // Clean and parse MCQ response
     let mcqPairs;
     try {
-      let cleaned = mcqResponse.trim().replace(/^```json\n|\n```$/g, "").replace(/\n/g, "");
-      mcqPairs = JSON.parse(cleaned);
-    } catch (e) {
+      let cleanedResponse = mcqResponse.trim();
+      cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, "");
+      cleanedResponse = cleanedResponse.replace(/\n/g, "");
+      mcqPairs = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error("Failed to parse MCQ response:", mcqResponse, parseError);
       return Response.json(
-        { success: false, error: "Invalid MCQ response format", rawResponse: mcqResponse },
+        {
+          success: false,
+          error: "Invalid MCQ response format from model",
+          rawResponse: mcqResponse,
+        },
         { status: 500 }
       );
     }
 
-    if (mcqPairs.length !== 25) {
-      return Response.json(
-        { success: false, error: `Expected 25 MCQs, got ${mcqPairs.length}`, rawResponse: mcqResponse },
-        { status: 500 }
-      );
-    }
-
-    for (const mcq of mcqPairs) {
-      if (
-        !mcq.question ||
-        !Array.isArray(mcq.options) ||
-        mcq.options.length !== 4 ||
-        !mcq.correctAnswer ||
-        !mcq.options.includes(mcq.correctAnswer)
-      ) {
-        return Response.json(
-          { success: false, error: "Invalid MCQ format", rawResponse: mcqResponse },
-          { status: 500 }
-        );
-      }
-    }
-
+    // Validate open-ended response structure
     for (const pair of openEndedPairs) {
       if (!pair.question || !pair.answer) {
+        console.error("Invalid open-ended question-answer pair:", pair);
         return Response.json(
-          { success: false, error: "Invalid open-ended Q&A format", rawResponse: openEndedResponse },
+          {
+            success: false,
+            error: "Missing question or answer in open-ended response",
+            rawResponse: openEndedResponse,
+          },
           { status: 500 }
         );
       }
     }
 
+    // Validate MCQ response structure
+    if (mcqPairs.length !== 10) {
+      console.error("Incorrect number of MCQ questions:", mcqPairs.length);
+      return Response.json(
+        {
+          success: false,
+          error: "Expected 10 MCQ questions, received " + mcqPairs.length,
+          rawResponse: mcqResponse,
+        },
+        { status: 500 }
+      );
+    }
+
+    for (const pair of mcqPairs) {
+      if (
+        !pair.question ||
+        !pair.options ||
+        pair.options.length !== 4 ||
+        !pair.correctAnswer ||
+        !pair.options.includes(pair.correctAnswer)
+      ) {
+        console.error("Invalid MCQ structure:", pair);
+        return Response.json(
+          {
+            success: false,
+            error: "Invalid MCQ structure in response",
+            rawResponse: mcqResponse,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Prepare interview object
     const interview = {
-      resume: resumeText.substring(0, 1000),
-      type,
+      role: "Resume-Based Interview",
+      type: "technical",
+      level: "unknown",
+      techstack: [], // No specific tech stack provided
       questions: openEndedPairs,
       mcqs: mcqPairs,
       userId: userid,
@@ -180,11 +156,12 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    await db.collection("resume_interviews").add(interview);
+    // Save to database
+    await db.collection("interviews").add(interview);
 
     return Response.json({ success: true, data: interview }, { status: 200 });
-  } catch (error: any) {
-    console.error("Error in POST /resume-interviews:", error);
+  } catch (error) {
+    console.error("Error in POST /resume-interview:", error);
     return Response.json(
       { success: false, error: error.message || "Internal server error" },
       { status: 500 }
