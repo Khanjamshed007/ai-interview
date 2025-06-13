@@ -4,8 +4,9 @@ import { getRandomInterviewCover } from "@/lib/utils";
 import { db } from "@/firebase/admin";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 
-// Set the workerSrc for pdfjs-dist (required for Node.js environment)
-GlobalWorkerOptions.workerSrc = require("pdfjs-dist/build/pdf.worker.entry");
+// Dynamically set workerSrc to ensure compatibility across environments
+import * as pdfjs from "pdfjs-dist";
+GlobalWorkerOptions.workerSrc = pdfjs;
 
 export async function GET() {
   return Response.json({ success: true, data: "Thank You" }, { status: 200 });
