@@ -2,6 +2,10 @@ import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { getRandomInterviewCover } from "@/lib/utils";
 import { db } from "@/firebase/admin";
+import { getDocument, GlobalWorkerOptions, version } from "@mozilla/pdf.js";
+
+// Set the workerSrc for pdf.js (required for Node.js environment)
+GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
 
 export async function GET() {
   return Response.json({ success: true, data: "Thank You" }, { status: 200 });
@@ -45,26 +49,44 @@ export async function POST(request: Request) {
         );
       }
 
-      // Dynamically import pdf-parse to prevent build-time error
-      const { default: pdf } = await import("pdf-parse");
+      // Load PDF document using pdf.js
+      const pdf = await getDocument({ data: buffer }).promise;
+      
+      let textContent = "";
+      const numPages = pdf.numPages;
 
-      const data = await pdf(buffer);
-      resumeText = data.text.trim();
+      // Extract text from each page
+      for (let i = 1; i <= numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items
+          .map((item: any) => (item.str || "").trim())
+          .filter((str: string) => str)
+          .join(" ");
+        textContent += pageText + " ";
+      }
+
+      resumeText = textContent.trim();
 
       if (!resumeText) {
         console.warn("No text extracted from PDF; proceeding with empty resume text");
         resumeText = "No resume content available";
       }
+
+      // Clean up PDF document
+      pdf.destroy();
     } catch (pdfError: any) {
-      console.error("Failed to parse PDF:", pdfError);
+      console.error("Failed to process PDF with pdf.js:", pdfError);
       let errorMessage = "Error processing PDF file";
-      if (pdfError.message.includes("Invalid PDF")) {
+      if (pdfError.name === "InvalidPDFException") {
         errorMessage = "The uploaded PDF is invalid or corrupted";
-      } else if (pdfError.message.includes("encrypted")) {
+      } else if (pdfError.name === "PasswordException") {
         errorMessage = "The PDF is password-protected or encrypted";
+      } else {
+        errorMessage = `Error processing PDF file: ${pdfError.message}`;
       }
       return Response.json(
-        { success: false, error: errorMessage },
+        { success: false, error: errorMessage, stack: pdfError.stack },
         { status: 500 }
       );
     }
