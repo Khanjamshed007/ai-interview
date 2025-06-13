@@ -6,7 +6,8 @@ const ResumeTemplate = ({ user }) => {
     const fileInputRef = useRef(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploadProgress, setUploadProgress] = useState(0);
-
+    const [message, setMessage] = useState(null); // For success/error messages
+    const [isSubmitting, setIsSubmitting] = useState(false); // To disable button during submission
     const handleClick = () => {
         fileInputRef.current?.click();
     };
@@ -15,6 +16,7 @@ const ResumeTemplate = ({ user }) => {
         const file = event.target.files[0];
         if (file) {
             setSelectedFile(file);
+            setMessage(null); // Clear previous messages
             simulateUpload();
         }
     };
@@ -32,26 +34,48 @@ const ResumeTemplate = ({ user }) => {
         }, 200);
     };
 
-    const handleSubmit = () => {
-        // Handle form submission here
-        console.log('Selected file:', selectedFile);
-        const formData = new FormData();
-        formData.append('resume', selectedFile);
-        formData.append('userId', user.id);
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
+    const handleSubmit = async () => {
+        if (!selectedFile) return;
 
-        fetch(`${apiBaseUrl}/api/vapi/resume`, {
-            method: 'POST',
-            body: formData,
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                console.log('Success:', data);
-            })
-            .catch((error) => {
-                console.error('Error:', error);
+        setIsSubmitting(true);
+        setMessage(null);
+
+        try {
+            const formData = new FormData();
+            formData.append('resume', selectedFile);
+            formData.append('userId', user?.id);
+
+            const response = await fetch('/api/vapi/genrate', {
+                method: 'POST',
+                body: formData,
             });
-    }
+
+            const result = await response.json();
+
+            if (result.success) {
+                setMessage({
+                    type: 'success',
+                    text: 'Resume processed successfully! Interview questions generated.',
+                });
+                // Optionally reset the form
+                setSelectedFile(null);
+                setUploadProgress(0);
+                fileInputRef.current.value = null;
+            } else {
+                setMessage({
+                    type: 'error',
+                    text: result.error || 'Failed to process resume. Please try again.',
+                });
+            }
+        } catch (error) {
+            setMessage({
+                type: 'error',
+                text: 'An error occurred while submitting the resume.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="flex items-center justify-center min-h-screen px-4">
@@ -67,7 +91,7 @@ const ResumeTemplate = ({ user }) => {
                 >
                     <div className="text-4xl mb-2"><FaUpload /></div>
                     <p className="font-medium text-gray-700">Drag your resume here or click to upload</p>
-                    <p className="text-sm text-gray-500 mt-1">Acceptable file types: PDF, DOCX (5MB max)</p>
+                    <p className="text-sm text-gray-500 mt-1">Acceptable file types: PDF (5MB max)</p>
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -94,13 +118,20 @@ const ResumeTemplate = ({ user }) => {
                         )}
                     </div>
                 )}
-                <div className='flex items-center justify-center'>
+
+                {message && (
+                    <div className={`mt-4 text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                        {message.text}
+                    </div>
+                )}
+
+                <div className="flex items-center justify-center">
                     <button
-                        className="btn-primary mt-6 text-center pl-10 pr-10"
-                        disabled={!selectedFile}
+                        className={`btn-primary mt-6 text-center pl-10 pr-10 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={!selectedFile || isSubmitting}
                         onClick={handleSubmit}
                     >
-                        Submit
+                        {isSubmitting ? 'Submitting...' : 'Submit'}
                     </button>
                 </div>
             </div>
