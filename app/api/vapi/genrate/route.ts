@@ -37,27 +37,39 @@ export async function POST(request: Request) {
     try {
       const buffer = Buffer.from(await pdfFile.arrayBuffer());
 
-      // ✅ Dynamically import pdf-parse to prevent build-time error
+      // Validate PDF header
+      if (!buffer.toString("utf8", 0, 5).startsWith("%PDF-")) {
+        return Response.json(
+          { success: false, error: "Invalid PDF file format" },
+          { status: 400 }
+        );
+      }
+
+      // Dynamically import pdf-parse to prevent build-time error
       const { default: pdf } = await import("pdf-parse");
 
       const data = await pdf(buffer);
       resumeText = data.text.trim();
 
       if (!resumeText) {
-        return Response.json(
-          { success: false, error: "No text could be extracted from the PDF" },
-          { status: 400 }
-        );
+        console.warn("No text extracted from PDF; proceeding with empty resume text");
+        resumeText = "No resume content available";
       }
-    } catch (pdfError) {
+    } catch (pdfError: any) {
       console.error("Failed to parse PDF:", pdfError);
+      let errorMessage = "Error processing PDF file";
+      if (pdfError.message.includes("Invalid PDF")) {
+        errorMessage = "The uploaded PDF is invalid or corrupted";
+      } else if (pdfError.message.includes("encrypted")) {
+        errorMessage = "The PDF is password-protected or encrypted";
+      }
       return Response.json(
-        { success: false, error: "Error processing PDF file" },
+        { success: false, error: errorMessage },
         { status: 500 }
       );
     }
 
-    const type = "mixed";
+    const type = "ai";
     const amount = 5;
     const userid = "anonymous";
 
