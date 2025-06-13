@@ -8,8 +8,8 @@ export async function POST(request: Request) {
   try {
     // Parse multipart form data to get userid and file
     const formData = await request.formData();
-    const userid = formData.get("userid")?.toString();
-    const file = formData.get("file");
+    const userid = formData.get("userId")?.toString();
+    const file = formData.get("resume");
 
     if (!userid || !file || !(file instanceof File) || file.type !== "application/pdf") {
       return Response.json(
