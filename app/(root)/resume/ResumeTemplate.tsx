@@ -1,142 +1,200 @@
-'use client';
-import React, { useRef, useState } from 'react';
-import { FaUpload } from 'react-icons/fa';
+import { generateText } from "ai";
+import { google } from "@ai-sdk/google";
+import { db } from "@/firebase/admin";
+import { getRandomInterviewCover } from "@/lib/utils";
 
-const ResumeTemplate = ({ user }) => {
-    const fileInputRef = useRef(null);
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [message, setMessage] = useState(null); // For success/error messages
-    const [isSubmitting, setIsSubmitting] = useState(false); // To disable button during submission
-    const handleClick = () => {
-        fileInputRef.current?.click();
+export async function POST(request: Request) {
+  try {
+    // Parse multipart form data to get userId and resume
+    const formData = await request.formData();
+    const userid = formData.get("userId")?.toString();
+    const file = formData.get("resume");
+
+    if (!userid || !file || !(file instanceof File) || file.type !== "application/pdf") {
+      return Response.json(
+        { success: false, error: "Missing userId or valid PDF file" },
+        { status: 400 }
+      );
+    }
+
+    // Read PDF file
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Parse PDF using pdf-parse with error handling
+    let resumeText = "";
+    try {
+      const pdfData = await pdf(buffer, {
+        max: 0, // Process all pages
+        disableFontFace: true, // Avoid font-related issues
+        disableCombineTextItems: false, // Combine text items for better output
+      });
+      resumeText = pdfData.text.trim();
+      // Debug: Log metadata and extracted text
+      console.log("pdf-parse metadata:", JSON.stringify(pdfData.info, null, 2));
+      console.log("pdf-parse text length:", resumeText.length);
+      console.log("pdf-parse text sample:", resumeText.slice(0, 200));
+    } catch (pdfError) {
+      console.error("pdf-parse error:", pdfError.message, pdfError.stack);
+      return Response.json(
+        {
+          success: false,
+          error: "Failed to parse PDF",
+          debug: { pdfError: pdfError.message },
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!resumeText || resumeText.length === 0) {
+      return Response.json(
+        {
+          success: false,
+          error: "No text extracted from the PDF. The PDF may be image-based; please provide a text-based PDF or contact support for OCR processing.",
+          debug: { textLength: resumeText.length, textSample: resumeText.slice(0, 200) },
+        },
+        { status: 400 }
+      );
+    }
+
+    // Generate open-ended questions and answers based on resume
+    const { text: openEndedResponse } = await generateText({
+      model: google("gemini-2.0-flash-001"),
+      prompt: `Based on the following resume text, prepare questions and answers for a job interview.
+        Resume text: ${resumeText}
+        Generate 5 open-ended questions relevant to the candidate's experience, skills, or projects mentioned in the resume.
+        Return ONLY the questions and answers in the following JSON format, with no additional text, explanations, or code fences:
+        [{"question": "Question 1", "answer": "Answer 1"}, {"question": "Question 2", "answer": "Answer 2"}]
+        The questions and answers will be read by a voice assistant, so avoid using special characters like / or *.
+        Thank you!`,
+    });
+
+    // Generate 10 MCQ questions based on resume
+    const { text: mcqResponse } = await generateText({
+      model: google("gemini-2.0-flash-001"),
+      prompt: `Based on the following resume text, prepare 10 multiple-choice questions (MCQs) for a mock job interview.
+        Resume text: ${resumeText}
+        Focus on technical questions related to the skills, technologies, or projects mentioned in the resume.
+        Return ONLY the questions in the following JSON format, with no additional text, explanations, or code fences:
+        [{"question": "Question 1", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option A"}, {"question": "Question 2", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option B"}]
+        The questions and options will be read by a voice assistant, so avoid using special characters like / or *.
+        Ensure exactly 10 questions are generated.
+        Thank you!`,
+    });
+
+    // Clean and parse open-ended response
+    let openEndedPairs;
+    try {
+      let cleanedResponse = openEndedResponse.trim();
+      cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, "");
+      cleanedResponse = cleanedResponse.replace(/\n/g, "");
+      openEndedPairs = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error("Failed to parse open-ended response:", openEndedResponse, parseError);
+      return Response.json(
+        {
+          success: false,
+          error: "Invalid open-ended response format from model",
+          rawResponse: openEndedResponse,
+        },
+        { status: 500 }
+      );
+    }
+
+    // Clean and parse MCQ response
+    let mcqPairs;
+    try {
+      let cleanedResponse = mcqResponse.trim();
+      cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, "");
+      cleanedResponse = cleanedResponse.replace(/\n/g, "");
+      mcqPairs = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error("Failed to parse MCQ response:", mcqResponse, parseError);
+      return Response.json(
+        {
+          success: false,
+          error: "Invalid MCQ response format from model",
+          rawResponse: mcqResponse,
+        },
+        { status: 500 }
+      );
+    }
+
+    // Validate open-ended response structure
+    for (const pair of openEndedPairs) {
+      if (!pair.question || !pair.answer) {
+        console.error("Invalid open-ended question-answer pair:", pair);
+        return Response.json(
+          {
+            success: false,
+            error: "Missing question or answer in open-ended response",
+            rawResponse: openEndedResponse,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Validate MCQ response structure
+    if (mcqPairs.length !== 10) {
+      console.error("Incorrect number of MCQ questions:", mcqPairs.length);
+      return Response.json(
+        {
+          success: false,
+          error: "Expected 10 MCQ questions, received " + mcqPairs.length,
+          rawResponse: mcqResponse,
+        },
+        { status: 500 }
+      );
+    }
+
+    for (const pair of mcqPairs) {
+      if (
+        !pair.question ||
+        !pair.options ||
+        pair.options.length !== 4 ||
+        !pair.correctAnswer ||
+        !pair.options.includes(pair.correctAnswer)
+      ) {
+        console.error("Invalid MCQ structure:", pair);
+        return Response.json(
+          {
+            success: false,
+            error: "Invalid MCQ structure in response",
+            rawResponse: mcqResponse,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Prepare interview object
+    const interview = {
+      role: "Resume-Based Interview",
+      type: "technical",
+      level: "unknown",
+      techstack: [], // No specific tech stack provided
+      questions: openEndedPairs,
+      mcqs: mcqPairs,
+      userId: userid,
+      finalized: true,
+      coverImage: getRandomInterviewCover(),
+      createdAt: new Date().toISOString(),
     };
 
-    const handleFileChange = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            setSelectedFile(file);
-            setMessage(null); // Clear previous messages
-            simulateUpload();
-        }
-    };
+    // Save to database
+    await db.collection("interviews").add(interview);
 
-    const simulateUpload = () => {
-        setUploadProgress(0);
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += 10;
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(interval);
-            }
-            setUploadProgress(progress);
-        }, 200);
-    };
-
-    const handleSubmit = async () => {
-        if (!selectedFile) return;
-
-        setIsSubmitting(true);
-        setMessage(null);
-
-        try {
-            const formData = new FormData();
-            formData.append('resume', selectedFile);
-            formData.append('userId', user?.id);
-
-            const response = await fetch('/api/vapi/genrate', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                setMessage({
-                    type: 'success',
-                    text: 'Resume processed successfully! Interview questions generated.',
-                });
-                // Optionally reset the form
-                setSelectedFile(null);
-                setUploadProgress(0);
-                fileInputRef.current.value = null;
-            } else {
-                setMessage({
-                    type: 'error',
-                    text: result.error || 'Failed to process resume. Please try again.',
-                });
-            }
-        } catch (error) {
-            setMessage({
-                type: 'error',
-                text: 'An error occurred while submitting the resume.',
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    return (
-        <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="max-w-xl w-full border border-gray-300 rounded-lg p-6 shadow-sm">
-                <h2 className="text-2xl font-semibold text-primary-100">Upload your resume</h2>
-                <p className="text-gray-600 mt-1">
-                    Help us get to know you better by sharing your resume.
-                </p>
-
-                <div
-                    onClick={handleClick}
-                    className="mt-6 border-2 border-dashed border-gray-300 rounded-lg p-10 flex flex-col items-center justify-center cursor-pointer hover:border-gray-500 transition"
-                >
-                    <div className="text-4xl mb-2"><FaUpload /></div>
-                    <p className="font-medium text-gray-700">Drag your resume here or click to upload</p>
-                    <p className="text-sm text-gray-500 mt-1">Acceptable file types: PDF (5MB max)</p>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept=".pdf"
-                        className="hidden"
-                        onChange={handleFileChange}
-                    />
-                </div>
-
-                {selectedFile && (
-                    <div className="mt-4">
-                        <p className="text-sm text-gray-800 font-medium">Selected file:</p>
-                        <p className="text-sm text-gray-600 truncate">{selectedFile.name}</p>
-
-                        <div className="w-full bg-gray-200 rounded-full h-3 mt-2">
-                            <div
-                                className="bg-blue-500 h-3 rounded-full transition-all duration-300"
-                                style={{ width: `${uploadProgress}%` }}
-                            ></div>
-                        </div>
-
-                        {uploadProgress === 100 && (
-                            <p className="text-green-600 text-sm mt-1">Upload complete!</p>
-                        )}
-                    </div>
-                )}
-
-                {message && (
-                    <div className={`mt-4 text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-                        {message.text}
-                    </div>
-                )}
-
-                <div className="flex items-center justify-center">
-                    <button
-                        className={`btn-primary mt-6 text-center pl-10 pr-10 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={!selectedFile || isSubmitting}
-                        onClick={handleSubmit}
-                    >
-                        {isSubmitting ? 'Submitting...' : 'Submit'}
-                    </button>
-                </div>
-            </div>
-        </div>
+    return Response.json({ success: true, data: interview }, { status: 200 });
+  } catch (error) {
+    console.error("Error in POST /api/vapi/genrate:", error.message, error.stack);
+    return Response.json(
+      {
+        success: false,
+        error: error.message || "Internal server error",
+        debug: { errorStack: error.stack },
+      },
+      { status: 500 }
     );
-};
-
-export default ResumeTemplate;
+  }
+}

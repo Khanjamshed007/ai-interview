@@ -2,18 +2,18 @@ import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { db } from "@/firebase/admin";
 import { getRandomInterviewCover } from "@/lib/utils";
-import PDFParser from "pdf2json";
+import pdf from "pdf-parse-fork";
 
 export async function POST(request: Request) {
   try {
-    // Parse multipart form data to get userid and file
+    // Parse multipart form data to get userId and resume
     const formData = await request.formData();
     const userid = formData.get("userId")?.toString();
     const file = formData.get("resume");
 
     if (!userid || !file || !(file instanceof File) || file.type !== "application/pdf") {
       return Response.json(
-        { success: false, error: "Missing userid or valid PDF file" },
+        { success: false, error: "Missing userId or valid PDF file" },
         { status: 400 }
       );
     }
@@ -22,22 +22,36 @@ export async function POST(request: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Parse PDF using pdf2json
-    const pdfParser = new PDFParser();
-    const parsePromise = new Promise<string>((resolve, reject) => {
-      pdfParser.on("pdfParser_dataError", (errData: any) => reject(new Error(errData.parserError)));
-      pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
-        const text = pdfParser.getRawTextContent();
-        resolve(text);
+    // Parse PDF using pdf-parse
+    let resumeText = "";
+    try {
+      const pdfData = await pdf(buffer, {
+        max: 0, // Process all pages
       });
-      pdfParser.parseBuffer(buffer);
-    });
-
-    const resumeText = await parsePromise;
-
-    if (!resumeText || resumeText.trim().length === 0) {
+      resumeText = pdfData.text.trim();
+      // Debug: Log metadata and extracted text
+      console.log("pdf-parse metadata:", pdfData.info);
+      console.log("pdf-parse text length:", resumeText.length);
+      console.log("pdf-parse text sample:", resumeText.slice(0, 200));
+    } catch (pdfError) {
+      console.error("pdf-parse error:", pdfError);
       return Response.json(
-        { success: false, error: "No text extracted from the PDF" },
+        {
+          success: false,
+          error: "Failed to parse PDF",
+          debug: { pdfError: pdfError.message },
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!resumeText || resumeText.length === 0) {
+      return Response.json(
+        {
+          success: false,
+          error: "No text extracted from the PDF. The PDF may be image-based; please provide a text-based PDF or enable OCR processing.",
+          debug: { textLength: resumeText.length, textSample: resumeText.slice(0, 200) },
+        },
         { status: 400 }
       );
     }
@@ -174,7 +188,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error in POST /resume-interview:", error);
     return Response.json(
-      { success: false, error: error.message || "Internal server error" },
+      { success: false, error: error.message || "Internal server error", debug: { errorStack: error.stack } },
       { status: 500 }
     );
   }
