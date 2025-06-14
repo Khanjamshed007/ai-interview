@@ -19,6 +19,20 @@ export async function getInterviewByUerId(
     id: doc.id,
   })) as Interview[];
 }
+export async function getResumeInterviewByUerId(
+  userId: string
+): Promise<Interview[] | null> {
+  const interviews = await db
+    .collection("resume_interviews")
+    .where("userId", "==", userId)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  return interviews.docs.map((doc) => ({
+    ...doc.data(),
+    id: doc.id,
+  })) as Interview[];
+}
 
 export async function getLatestInterview(
   params: GetLatestInterviewsParams
@@ -48,6 +62,32 @@ export async function getInterviewById(id: string): Promise<Interview | null> {
     }
 
     const interviewDoc = await db.collection("interviews").doc(id).get();
+
+    if (!interviewDoc.exists) {
+      return null;
+    }
+
+    const interviewData = interviewDoc.data();
+
+    if (!interviewData) {
+      return null;
+    }
+
+    return interviewData as Interview;
+  } catch (error) {
+    console.error("Error fetching interview with ID:", id, error);
+    return null;
+  }
+}
+export async function getResumeInterviewById(id: string): Promise<Interview | null> {
+  // Debug: Log input ID
+  try {
+    if (!id) {
+      console.error("Invalid ID provided");
+      return null;
+    }
+
+    const interviewDoc = await db.collection("resume_interviews").doc(id).get();
 
     if (!interviewDoc.exists) {
       return null;

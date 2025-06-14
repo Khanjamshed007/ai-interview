@@ -1,16 +1,20 @@
 import Agent from '@/components/Agent'
 import DisplayTechIcons from '@/components/DisplayTechIcons'
 import { getCurrentUser } from '@/lib/actions/auth.action'
-import { getInterviewById } from '@/lib/actions/general.action'
+import { getInterviewById, getResumeInterviewById } from '@/lib/actions/general.action'
 import { getRandomInterviewCover } from '@/lib/utils'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import React from 'react'
 
-const page = async ({ params }: RouteParams) => {
+const page = async ({ params, searchParams }: RouteParams) => {
     const { id } = await params;
+    const { resume } = await searchParams;
     const user = await getCurrentUser();
-    const interview = await getInterviewById(id)
+    console.log(user)
+    const interview = resume
+        ? await getResumeInterviewById(id!)
+        : await getInterviewById(id);
     if (!interview) redirect('/')
 
     return (

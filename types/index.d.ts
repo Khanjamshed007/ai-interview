@@ -55,6 +55,7 @@ interface InterviewCardProps {
   type: string;
   techstack: string[];
   createdAt?: string;
+  resume?: string;
 }
 
 interface AgentProps {

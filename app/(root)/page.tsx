@@ -2,7 +2,7 @@ import InterviewCard from '@/components/InterviewCard'
 import LinkWithLoader from '@/components/LinkWithLoader'
 import { Button } from '@/components/ui/button'
 import { getCurrentUser } from '@/lib/actions/auth.action'
-import { getInterviewByUerId, getLatestInterview } from '@/lib/actions/general.action'
+import { getInterviewByUerId, getLatestInterview, getResumeInterviewByUerId } from '@/lib/actions/general.action'
 import Image from 'next/image'
 import React from 'react'
 import { FaUpload } from "react-icons/fa";
@@ -10,12 +10,12 @@ import { FaUpload } from "react-icons/fa";
 const page = async () => {
   const user = await getCurrentUser();
 
-  const [userInterviews, latestInterviews] = await Promise.all([
+  const [userInterviews, resumeInterviews, latestInterviews] = await Promise.all([
     await getInterviewByUerId(user?.id!),
+    await getResumeInterviewByUerId(user?.id!),
     await getLatestInterview({ userId: user?.id! })
   ])
 
-  console.log(userInterviews)
 
   return (
     <>
@@ -50,6 +50,18 @@ const page = async () => {
           {userInterviews && userInterviews.length > 0 ? (
             userInterviews.map((interview) => (
               <InterviewCard {...interview} key={interview.id} />
+            ))
+          ) : (
+            <p className="no-interviews">You have not taken any interviews yet</p>
+          )}
+        </div>
+      </section>
+      <section className='flex flex-col gap-6 mt-8'>
+        <h2>Resume Based Interviews</h2>
+        <div className='interviews-section'>
+          {resumeInterviews && resumeInterviews.length > 0 ? (
+            resumeInterviews.map((interview) => (
+              <InterviewCard {...interview} key={interview.id} resume="resume"/>
             ))
           ) : (
             <p className="no-interviews">You have not taken any interviews yet</p>

@@ -1,83 +1,49 @@
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
-import { db } from "@/firebase/admin";
 import { getRandomInterviewCover } from "@/lib/utils";
-import pdf from "pdf-parse-fork";
+import { db } from "@/firebase/admin";
+
+export async function GET() {
+  return Response.json({ success: true, data: "Thank You" }, { status: 200 });
+}
+
 
 export async function POST(request: Request) {
   try {
-    // Parse multipart form data to get userId and resume
-    const formData = await request.formData();
-    const userid = formData.get("userId")?.toString();
-    const file = formData.get("resume");
+    // Parse request body
+    const { type, role, level, techstack, amount, userid } = await request.json();
 
-    if (!userid || !file || !(file instanceof File) || file.type !== "application/pdf") {
-      return Response.json(
-        { success: false, error: "Missing userId or valid PDF file" },
-        { status: 400 }
-      );
-    }
-
-    // Read PDF file
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Parse PDF using pdf-parse
-    let resumeText = "";
-    try {
-      const pdfData = await pdf(buffer, {
-        max: 0, // Process all pages
-      });
-      resumeText = pdfData.text.trim();
-      // Debug: Log metadata and extracted text
-      console.log("pdf-parse metadata:", pdfData.info);
-      console.log("pdf-parse text length:", resumeText.length);
-      console.log("pdf-parse text sample:", resumeText.slice(0, 200));
-    } catch (pdfError) {
-      console.error("pdf-parse error:", pdfError);
-      return Response.json(
-        {
-          success: false,
-          error: "Failed to parse PDF",
-          debug: { pdfError: pdfError.message },
-        },
-        { status: 500 }
-      );
-    }
-
-    if (!resumeText || resumeText.length === 0) {
-      return Response.json(
-        {
-          success: false,
-          error: "No text extracted from the PDF. The PDF may be image-based; please provide a text-based PDF or enable OCR processing.",
-          debug: { textLength: resumeText.length, textSample: resumeText.slice(0, 200) },
-        },
-        { status: 400 }
-      );
-    }
-
-    // Generate open-ended questions and answers based on resume
+    // Generate open-ended questions and answers
     const { text: openEndedResponse } = await generateText({
       model: google("gemini-2.0-flash-001"),
-      prompt: `Based on the following resume text, prepare questions and answers for a job interview.
-        Resume text: ${resumeText}
-        Generate 5 open-ended questions relevant to the candidate's experience, skills, or projects mentioned in the resume.
+      prompt: `Prepare questions and answers for a job interview.
+        The job role is ${role}.
+        The job experience level is ${level}.
+        The tech stack used in the job is: ${techstack}.
+        The focus between behavioural and technical questions should lean towards: ${type}.
+        The amount of questions required is: ${amount}.
         Return ONLY the questions and answers in the following JSON format, with no additional text, explanations, or code fences:
-        [{"question": "Question 1", "answer": "Answer 1"}, {"question": "Question 2", "answer": "Answer 2"}]
+        [{"question": "Question 1", "answer": "Answer 1"}, {"question": "Question 2", "answer": "Answer 2"}, {"question": "Question 3", "answer": "Answer 3"}]
+        Example for a Software Engineer role (do not include this example in the output):
+        [{"question": "Explain event delegation in JavaScript", "answer": "Event delegation is a technique where a single event listener is added to a parent element to manage events on its children, leveraging event bubbling to improve performance."}, {"question": "What is a closure?", "answer": "A closure is a function that retains access to its lexical scope, even when executed outside that scope, allowing for data encapsulation."}]
         The questions and answers will be read by a voice assistant, so avoid using special characters like / or *.
         Thank you!`,
     });
 
-    // Generate 10 MCQ questions based on resume
+    // Generate 25 MCQ questions
     const { text: mcqResponse } = await generateText({
       model: google("gemini-2.0-flash-001"),
-      prompt: `Based on the following resume text, prepare 10 multiple-choice questions (MCQs) for a mock job interview.
-        Resume text: ${resumeText}
-        Focus on technical questions related to the skills, technologies, or projects mentioned in the resume.
+      prompt: `Prepare 25 multiple-choice questions (MCQs) for a mock job interview.
+        The job role is ${role}.
+        The job experience level is ${level}.
+        The tech stack used in the job is: ${techstack}.
+        The focus should be on technical questions related to the tech stack.
         Return ONLY the questions in the following JSON format, with no additional text, explanations, or code fences:
         [{"question": "Question 1", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option A"}, {"question": "Question 2", "options": ["Option A", "Option B", "Option C", "Option D"], "correctAnswer": "Option B"}]
+        Example for a Software Engineer role (do not include this example in the output):
+        [{"question": "What is the primary purpose of React's useState hook?", "options": ["Manage component state", "Handle API calls", "Optimize rendering", "Control routing"], "correctAnswer": "Manage component state"}, {"question": "Which HTTP method is used for updating resources?", "options": ["GET", "POST", "PUT", "DELETE"], "correctAnswer": "PUT"}]
         The questions and options will be read by a voice assistant, so avoid using special characters like / or *.
-        Ensure exactly 10 questions are generated.
+        Ensure exactly 25 questions are generated.
         Thank you!`,
     });
 
@@ -85,8 +51,8 @@ export async function POST(request: Request) {
     let openEndedPairs;
     try {
       let cleanedResponse = openEndedResponse.trim();
-      cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, "");
-      cleanedResponse = cleanedResponse.replace(/\n/g, "");
+      cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, ""); // Remove code fences
+      cleanedResponse = cleanedResponse.replace(/\n/g, ""); // Remove newlines
       openEndedPairs = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error("Failed to parse open-ended response:", openEndedResponse, parseError);
@@ -104,8 +70,8 @@ export async function POST(request: Request) {
     let mcqPairs;
     try {
       let cleanedResponse = mcqResponse.trim();
-      cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, "");
-      cleanedResponse = cleanedResponse.replace(/\n/g, "");
+      cleanedResponse = cleanedResponse.replace(/^```json\n|\n```$/g, ""); // Remove code fences
+      cleanedResponse = cleanedResponse.replace(/\n/g, ""); // Remove newlines
       mcqPairs = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error("Failed to parse MCQ response:", mcqResponse, parseError);
@@ -135,12 +101,12 @@ export async function POST(request: Request) {
     }
 
     // Validate MCQ response structure
-    if (mcqPairs.length !== 10) {
+    if (mcqPairs.length !== 25) {
       console.error("Incorrect number of MCQ questions:", mcqPairs.length);
       return Response.json(
         {
           success: false,
-          error: "Expected 10 MCQ questions, received " + mcqPairs.length,
+          error: "Expected 25 MCQ questions, received " + mcqPairs.length,
           rawResponse: mcqResponse,
         },
         { status: 500 }
@@ -169,10 +135,10 @@ export async function POST(request: Request) {
 
     // Prepare interview object
     const interview = {
-      role: "Resume-Based Interview",
-      type: "technical",
-      level: "unknown",
-      techstack: [], // No specific tech stack provided
+      role,
+      type,
+      level,
+      techstack: techstack.split(",").map((tech: string) => tech.trim()),
       questions: openEndedPairs,
       mcqs: mcqPairs,
       userId: userid,
@@ -186,9 +152,9 @@ export async function POST(request: Request) {
 
     return Response.json({ success: true, data: interview }, { status: 200 });
   } catch (error) {
-    console.error("Error in POST /resume-interview:", error);
+    console.error("Error in POST /interviews:", error);
     return Response.json(
-      { success: false, error: error.message || "Internal server error", debug: { errorStack: error.stack } },
+      { success: false, error: error.message || "Internal server error" },
       { status: 500 }
     );
   }

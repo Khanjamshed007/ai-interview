@@ -5,15 +5,18 @@ import { getRandomInterviewCover } from '@/lib/utils';
 import { Button } from './ui/button';
 import Link from 'next/link';
 import DisplayTechIcons from './DisplayTechIcons';
-import { getFeedbackByInterviewId, getInterviewById } from '@/lib/actions/general.action';
+import { getFeedbackByInterviewId, getInterviewById, getResumeInterviewByUerId } from '@/lib/actions/general.action';
 import LinkWithLoader from './LinkWithLoader';
 
-const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: InterviewCardProps) => {
+const InterviewCard = async ({ id, userId, role, type, techstack, resume, createdAt }: InterviewCardProps) => {
     const feedback = userId && id ? await getFeedbackByInterviewId({ interviewId: id, userId }) : null;
     const normalizedType = /mix/gi.test(type) ? "Mixed" : type;
     const formattedDate = dayjs(feedback?.createdAt || createdAt || Date.now()).format("MMM D, YYYY");
     const interview = await getInterviewById(id);
-    console.log(interview);
+    const Resumeinterview = await getResumeInterviewByUerId(userId!);
+    const ResumeFirst = Resumeinterview
+        ?.filter(item => item.mcqs && item.mcqs.length > 0)
+        .map(item => item.mcqs);
 
     return (
         <div className='card-border w-[360px] max-sm:w-full min-h-96'>
@@ -43,27 +46,36 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
                 </div>
                 <div className='flex flex-row justify-between'>
                     <DisplayTechIcons techStack={techstack} />
-                    {interview?.mcqs && interview?.mcqs?.length > 0 && (
-                        <Button className="btn-primary" asChild>
-                            <LinkWithLoader href={`/interview/${id}/mcq`}>Mock Interview</LinkWithLoader>
-                        </Button>
+                    {resume === "resume" && ResumeFirst ? (
+                        ResumeFirst && ResumeFirst?.length > 0 && (
+                            <Button className="btn-primary" asChild>
+                                <LinkWithLoader href={`/interview/${id}/mcq?resume=1`}>Mock Interview</LinkWithLoader>
+                            </Button>
+                        )
+                    ) : (
+                        interview?.mcqs && interview?.mcqs?.length > 0 && (
+                            <Button className="btn-primary" asChild>
+                                <LinkWithLoader href={`/interview/${id}/mcq`}>Mock Interview</LinkWithLoader>
+                            </Button>
+                        )
                     )}
+
                 </div>
                 <div className='flex flex-row justify-between'>
                     <div className="flex gap-4">
                         <Button className="btn-primary" asChild>
-                            <LinkWithLoader href={feedback ? `/interview/${id}/feedback` : `/interview/${id}`}>
+                            <LinkWithLoader href={feedback ? `/interview/${id}/feedback` : resume ? `/interview/${id}?resume=1` : `/interview/${id}`}>
                                 {feedback ? "Check Feedback" : "Start Interview"}
                             </LinkWithLoader>
                         </Button>
                         <Button className="btn-secondary" asChild>
-                            <LinkWithLoader href={`/interview/${id}/question`} variant="secondary">View Questions</LinkWithLoader>
+                            <LinkWithLoader href={resume ? `/interview/${id}/question?resume=1` : `/interview/${id}/question`} variant="secondary">View Questions</LinkWithLoader>
                         </Button>
                     </div>
                 </div>
             </div>
 
-        </div>
+        </div >
     )
 }
 

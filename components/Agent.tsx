@@ -202,7 +202,7 @@ const Agent = ({ userName, userId, type, questions, interviewId }: AgentProps) =
                         <span>{isCallInactiveOrFinished ? "Start Call" : "Connecting..."}</span>
                     </button>
                 ) : (
-                    <button className='btn-disconnect' onClick={handleDisconnect}>
+                    <button className='btn-disconnect mt-3' onClick={handleDisconnect}>
                         End
                     </button>
                 )}

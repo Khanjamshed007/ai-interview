@@ -6,17 +6,24 @@ import { redirect } from "next/navigation";
 import {
     getFeedbackByInterviewId,
     getInterviewById,
+    getResumeInterviewById,
+    getResumeInterviewByUerId,
 } from "@/lib/actions/general.action";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 
-const Question = async ({ params }: RouteParams) => {
+const Question = async ({ params, searchParams }: RouteParams) => {
     const { id } = await params;
+    const { resume } = await searchParams;
     const user = await getCurrentUser();
-
-    const interview = await getInterviewById(id);
+    const userId = user?.id
+    console.log(user)
+    const interview = resume
+        ? await getResumeInterviewById(id!)
+        : await getInterviewById(id);
     if (!interview) redirect("/");
-    console.log(interview);
+
+    console.log(interview)
 
     return (
         <section className="section-feedback">

@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 import React, { useRef, useState } from 'react';
 import { FaUpload } from 'react-icons/fa';
 
@@ -7,7 +8,8 @@ const ResumeTemplate = ({ user }) => {
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [message, setMessage] = useState(null); // For success/error messages
-    const [isSubmitting, setIsSubmitting] = useState(false); // To disable button during submission
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const router = useRouter();// To disable button during submission
     const handleClick = () => {
         fileInputRef.current?.click();
     };
@@ -45,7 +47,7 @@ const ResumeTemplate = ({ user }) => {
             formData.append('resume', selectedFile);
             formData.append('userId', user?.id);
 
-            const response = await fetch('/api/vapi/genrate', {
+            const response = await fetch('/api/vapi/resume', {
                 method: 'POST',
                 body: formData,
             });
@@ -57,10 +59,10 @@ const ResumeTemplate = ({ user }) => {
                     type: 'success',
                     text: 'Resume processed successfully! Interview questions generated.',
                 });
-                // Optionally reset the form
                 setSelectedFile(null);
                 setUploadProgress(0);
                 fileInputRef.current.value = null;
+                router.push('/');
             } else {
                 setMessage({
                     type: 'error',
