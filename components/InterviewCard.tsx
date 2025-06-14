@@ -64,10 +64,21 @@ const InterviewCard = async ({ id, userId, role, type, techstack, resume, create
                 <div className='flex flex-row justify-between'>
                     <div className="flex gap-4">
                         <Button className="btn-primary" asChild>
-                            <LinkWithLoader href={feedback ? `/interview/${id}/feedback` : resume ? `/interview/${id}?resume=1` : `/interview/${id}`}>
+                            <LinkWithLoader
+                                href={
+                                    feedback
+                                        ? resume
+                                            ? `/interview/${id}/feedback?resume=1`
+                                            : `/interview/${id}/feedback`
+                                        : resume
+                                            ? `/interview/${id}?resume=1`
+                                            : `/interview/${id}`
+                                }
+                            >
                                 {feedback ? "Check Feedback" : "Start Interview"}
                             </LinkWithLoader>
                         </Button>
+
                         <Button className="btn-secondary" asChild>
                             <LinkWithLoader href={resume ? `/interview/${id}/question?resume=1` : `/interview/${id}/question`} variant="secondary">View Questions</LinkWithLoader>
                         </Button>
